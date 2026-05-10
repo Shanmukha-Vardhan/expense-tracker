@@ -6,6 +6,8 @@ import Buckets from './pages/Buckets'
 import History from './pages/History'
 import Insights from './pages/Insights'
 import WishlistPage from './pages/Wishlist'
+import EMITracker from './pages/EMITracker'
+import MiniGoals from './pages/MiniGoals'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -29,6 +31,8 @@ export default function App() {
         <Route path="/history" element={<History />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/emi" element={<EMITracker />} />
+        <Route path="/goals" element={<MiniGoals />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

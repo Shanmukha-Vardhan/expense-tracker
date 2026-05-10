@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LayoutDashboard, Layers, Clock, TrendingUp, LogOut, Menu, X, Gift } from 'lucide-react'
+import { LayoutDashboard, Layers, Clock, TrendingUp, LogOut, Menu, X, Gift, CreditCard, Target } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/buckets', label: 'Buckets', icon: Layers },
   { path: '/history', label: 'History', icon: Clock },
   { path: '/insights', label: 'Insights', icon: TrendingUp },
-  { path: '/wishlist', label: 'Wishlist', icon: Gift }
+  { path: '/wishlist', label: 'Wishlist', icon: Gift },
+  { path: '/emi', label: 'EMI', icon: CreditCard },
+  { path: '/goals', label: 'Goals', icon: Target }
 ]
 
 export default function Layout({ children }) {

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   getOrCreateCurrentPeriod, subscribeToCurrentPeriod, addIncome, addExpense,
   getTransactions, getWorkStreak, getCumulativeSavings, getDailySummariesFromTransactions,
-  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction
+  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction, getActiveEMIBurden
 } from '../services/firestore'
 import { format, subDays, isSameDay } from 'date-fns'
 import { Plus, Minus, X, Flame, Archive, RefreshCw, Undo2 } from 'lucide-react'
@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [undoTxn, setUndoTxn] = useState(null)
   const [undoSeconds, setUndoSeconds] = useState(0)
+  const [emiBurden, setEmiBurden] = useState(0)
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -63,6 +64,7 @@ export default function Dashboard() {
     if (!user) return
     getWorkStreak(user.uid).then(setStreak)
     getCumulativeSavings(user.uid).then(setCumulative)
+    getActiveEMIBurden(user.uid).then(setEmiBurden)
 
     const now = new Date()
     const start = format(subDays(now, 6), 'yyyy-MM-dd')
@@ -258,6 +260,24 @@ export default function Dashboard() {
           <div className="stat-sub">Income − Expenses (all time)</div>
         </div>
       </div>
+
+      {/* EMI Burden Bar */}
+      {emiBurden > 0 && totalIncome > 0 && (
+        <div className="emi-burden-bar-wrap">
+          <div className="emi-burden-header">
+            <span>💳 Monthly EMI Burden</span>
+            <span>₹{emiBurden.toLocaleString('en-IN')} locked / ₹{totalIncome.toLocaleString('en-IN')} income</span>
+          </div>
+          <div className="emi-burden-track">
+            <div className="emi-burden-locked" style={{ width: `${Math.min((emiBurden / totalIncome) * 100, 100)}%` }}>
+              EMI ₹{emiBurden.toLocaleString('en-IN')}
+            </div>
+            <div className="emi-burden-free" style={{ width: `${Math.max(100 - (emiBurden / totalIncome) * 100, 0)}%` }}>
+              Free ₹{Math.max(totalIncome - emiBurden, 0).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="actions-row">

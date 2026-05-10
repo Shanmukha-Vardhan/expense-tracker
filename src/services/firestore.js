@@ -472,3 +472,108 @@ export async function getMonthlyReportData(uid) {
     buckets
   }
 }
+
+/* ══════════════════════════════════════════
+   EMI TRACKER
+   ══════════════════════════════════════════ */
+
+const emiCol = (uid) => collection(db, 'users', uid, 'emis')
+
+export async function addEMI(uid, data) {
+  const totalCost = data.emiAmount * data.months
+  return addDoc(emiCol(uid), {
+    name: data.name,
+    totalPrice: data.totalPrice,
+    emiAmount: data.emiAmount,
+    months: data.months,
+    startDate: data.startDate,
+    priority: data.priority || 'need',
+    totalCost,
+    interestPaid: totalCost - data.totalPrice,
+    paidMonths: [],
+    status: 'active',
+    createdAt: Timestamp.now()
+  })
+}
+
+export async function getEMIs(uid) {
+  try {
+    const snap = await getDocs(emiCol(uid))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (err) {
+    console.error('getEMIs error:', err)
+    return []
+  }
+}
+
+export async function markEMIPaid(uid, emiId, amount, date) {
+  const ref = doc(db, 'users', uid, 'emis', emiId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  const paidMonths = [...(data.paidMonths || []), { date, amount }]
+  const totalPaidSoFar = paidMonths.reduce((s, p) => s + p.amount, 0)
+  const isComplete = totalPaidSoFar >= data.totalCost || paidMonths.length >= data.months
+  await updateDoc(ref, { paidMonths, status: isComplete ? 'completed' : 'active' })
+  return { isComplete, totalPaidSoFar, paidMonths }
+}
+
+export async function updateEMI(uid, emiId, updates) {
+  await updateDoc(doc(db, 'users', uid, 'emis', emiId), updates)
+}
+
+export async function deleteEMI(uid, emiId) {
+  return deleteDoc(doc(db, 'users', uid, 'emis', emiId))
+}
+
+export async function getActiveEMIBurden(uid) {
+  const emis = await getEMIs(uid)
+  return emis.filter(e => e.status === 'active').reduce((sum, e) => sum + (e.emiAmount || 0), 0)
+}
+
+/* ══════════════════════════════════════════
+   MINI GOALS
+   ══════════════════════════════════════════ */
+
+const goalsCol = (uid) => collection(db, 'users', uid, 'minigoals')
+
+export async function addMiniGoal(uid, data) {
+  return addDoc(goalsCol(uid), {
+    name: data.name,
+    targetAmount: data.targetAmount,
+    days: data.days,
+    startDate: data.startDate,
+    dailyLogs: [],
+    status: 'active',
+    createdAt: Timestamp.now()
+  })
+}
+
+export async function getMiniGoals(uid) {
+  try {
+    const snap = await getDocs(goalsCol(uid))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (err) {
+    console.error('getMiniGoals error:', err)
+    return []
+  }
+}
+
+export async function logMiniGoalEarning(uid, goalId, amount, date) {
+  const ref = doc(db, 'users', uid, 'minigoals', goalId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  const dailyLogs = [...(data.dailyLogs || [])]
+  const idx = dailyLogs.findIndex(l => l.date === date)
+  if (idx >= 0) dailyLogs[idx].amount += amount
+  else dailyLogs.push({ date, amount })
+  const totalEarned = dailyLogs.reduce((s, l) => s + l.amount, 0)
+  const isComplete = totalEarned >= data.targetAmount
+  await updateDoc(ref, { dailyLogs, status: isComplete ? 'completed' : 'active' })
+  return { isComplete, totalEarned, dailyLogs }
+}
+
+export async function deleteMiniGoal(uid, goalId) {
+  return deleteDoc(doc(db, 'users', uid, 'minigoals', goalId))
+}

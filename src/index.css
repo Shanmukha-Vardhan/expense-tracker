@@ -902,6 +902,87 @@ textarea {
   content: '-';
 }
 
+/* Transaction Edit/Delete Actions */
+.txn-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-left: 8px;
+}
+.txn-item:hover .txn-actions {
+  opacity: 1;
+}
+.txn-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--gray-400);
+  padding: 0;
+}
+.txn-action-btn:hover {
+  border-color: var(--gray-300);
+  color: var(--black);
+  background: var(--gray-50);
+}
+.txn-action-btn.delete:hover {
+  border-color: #fecaca;
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+/* Edit Modal Extras */
+.edit-txn-type-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.txn-type-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.txn-type-pill.income {
+  background: var(--black);
+  color: var(--white);
+}
+.txn-type-pill.expense {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+.edit-txn-date {
+  font-size: var(--fs-xs);
+  color: var(--gray-400);
+}
+.edit-txn-diff {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.edit-txn-diff .positive { color: #15803d; }
+.edit-txn-diff .negative { color: #dc2626; }
+
+/* Mobile: always show actions */
+@media (max-width: 600px) {
+  .txn-actions { opacity: 1; }
+}
+
 /* ═══════════════════════════════════════════════════
    HISTORY PAGE
    ═══════════════════════════════════════════════════ */

@@ -3,10 +3,10 @@ import { useAuth } from '../context/AuthContext'
 import {
   getOrCreateCurrentPeriod, subscribeToCurrentPeriod, addIncome, addExpense,
   getTransactions, getWorkStreak, getCumulativeSavings, getDailySummariesFromTransactions,
-  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction, getActiveEMIBurden
+  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction, updateTransaction, getActiveEMIBurden
 } from '../services/firestore'
 import { format, subDays, isSameDay } from 'date-fns'
-import { Plus, Minus, X, Flame, Archive, RefreshCw, Undo2 } from 'lucide-react'
+import { Plus, Minus, X, Flame, Archive, RefreshCw, Undo2, Pencil, Trash2 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [undoTxn, setUndoTxn] = useState(null)
   const [undoSeconds, setUndoSeconds] = useState(0)
   const [emiBurden, setEmiBurden] = useState(0)
+  const [editingTxn, setEditingTxn] = useState(null)
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -172,6 +173,40 @@ export default function Dashboard() {
       console.error('Sync failed:', err)
       setWarning('⚠️ Sync failed. Please try again.')
       setTimeout(() => setWarning(null), 5000)
+    }
+  }
+
+  const handleDeleteTxn = async (txn) => {
+    const label = `${txn.type === 'income' ? '+' : '-'}₹${txn.amount} ${txn.description}`
+    if (!confirm(`Delete this transaction?\n\n${label}\n\nThis will recalculate your period totals.`)) return
+    try {
+      setWarning('🗑️ Deleting transaction...')
+      await deleteTransaction(user.uid, txn.id)
+      await loadTransactions()
+      setWarning(`✅ Deleted: ${label}`)
+      setTimeout(() => setWarning(null), 3000)
+    } catch (err) {
+      console.error('Delete failed:', err)
+      setWarning('⚠️ Delete failed.')
+      setTimeout(() => setWarning(null), 4000)
+    }
+  }
+
+  const handleEditTxn = async (txnId, newAmount, newDescription) => {
+    try {
+      setWarning('✏️ Updating transaction...')
+      await updateTransaction(user.uid, txnId, {
+        amount: newAmount,
+        description: newDescription
+      })
+      await loadTransactions()
+      setEditingTxn(null)
+      setWarning('✅ Transaction updated!')
+      setTimeout(() => setWarning(null), 3000)
+    } catch (err) {
+      console.error('Edit failed:', err)
+      setWarning('⚠️ Edit failed.')
+      setTimeout(() => setWarning(null), 4000)
     }
   }
 
@@ -366,7 +401,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="txn-list">
-            {transactions.slice(0, 15).map((txn) => ( // Show only the latest 15 to avoid long lists
+            {transactions.slice(0, 15).map((txn) => (
               <div className="txn-item" key={txn.id}>
                 <div className={`txn-icon ${txn.type}`}>
                   {txn.type === 'income' ? <Plus size={16} /> : <Minus size={16} />}
@@ -382,6 +417,10 @@ export default function Dashboard() {
                 </div>
                 <div className={`txn-amount ${txn.type}`}>
                   ₹{txn.amount.toLocaleString('en-IN')}
+                </div>
+                <div className="txn-actions">
+                  <button className="txn-action-btn edit" onClick={() => setEditingTxn(txn)} title="Edit"><Pencil size={14} /></button>
+                  <button className="txn-action-btn delete" onClick={() => handleDeleteTxn(txn)} title="Delete"><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}
@@ -406,6 +445,15 @@ export default function Dashboard() {
             growth: Math.max(0, (buckets.growth?.allocated || 0) - (buckets.growth?.spent || 0)),
             savings: Math.max(0, (buckets.savings?.allocated || 0) - (buckets.savings?.spent || 0))
           }}
+        />
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTxn && (
+        <EditTransactionModal
+          txn={editingTxn}
+          onSave={handleEditTxn}
+          onClose={() => setEditingTxn(null)}
         />
       )}
 
@@ -549,6 +597,58 @@ function ExpenseModal({ onSubmit, onClose, bucketRemaining }) {
           <button type="button" className="cancel-btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="submit-btn" disabled={parsedAmount <= 0 || submitting} id="expense-submit">
             {submitting ? 'Adding...' : isTotalOverspend ? 'Add Anyway' : isEatingProtected ? 'Add Anyway' : 'Add Expense'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+/* ── Edit Transaction Modal ── */
+function EditTransactionModal({ txn, onSave, onClose }) {
+  const [amount, setAmount] = useState(txn.amount.toString())
+  const [description, setDescription] = useState(txn.description || '')
+  const [submitting, setSubmitting] = useState(false)
+  const parsedAmount = parseFloat(amount) || 0
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (parsedAmount <= 0) return
+    setSubmitting(true)
+    await onSave(txn.id, parsedAmount, description)
+    setSubmitting(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+        <h3>✏️ Edit Transaction</h3>
+        <div className="edit-txn-type-badge">
+          <span className={`txn-type-pill ${txn.type}`}>
+            {txn.type === 'income' ? '💰 Income' : '💸 Expense'}
+          </span>
+          <span className="edit-txn-date">{format(new Date(txn.date), 'MMM d, yyyy')}</span>
+        </div>
+        <div className="form-group">
+          <label>Amount (₹)</label>
+          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus min="1" step="any" />
+        </div>
+        <div className="form-group">
+          <label>Description</label>
+          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was this for?" />
+        </div>
+        {parsedAmount !== txn.amount && parsedAmount > 0 && (
+          <div className="edit-txn-diff">
+            <span>Change:</span>
+            <span className={parsedAmount > txn.amount ? 'positive' : 'negative'}>
+              {parsedAmount > txn.amount ? '+' : ''}₹{(parsedAmount - txn.amount).toLocaleString('en-IN')}
+            </span>
+          </div>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="cancel-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="submit-btn" disabled={parsedAmount <= 0 || submitting}>
+            <Pencil size={14} /> {submitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>

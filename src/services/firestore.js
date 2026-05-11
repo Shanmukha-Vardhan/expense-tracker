@@ -163,6 +163,29 @@ export async function deleteTransaction(uid, txnId) {
   await recalculateCurrentPeriod(uid)
 }
 
+/* ── update a transaction (edit amount/description) and recalculate ── */
+export async function updateTransaction(uid, txnId, updates) {
+  const txnRef = doc(db, 'users', uid, 'transactions', txnId)
+  const snap = await getDoc(txnRef)
+  if (!snap.exists()) throw new Error('Transaction not found')
+
+  const oldTxn = snap.data()
+
+  // If amount changed on an income txn, recalculate allocation
+  if (updates.amount !== undefined && oldTxn.type === 'income') {
+    const amount = updates.amount
+    const essentialsAdd = Math.round(amount * ALLOCATION.essentials * 100) / 100
+    const savingsAdd = Math.round(amount * ALLOCATION.savings * 100) / 100
+    const growthAdd = Math.round(amount * ALLOCATION.growth * 100) / 100
+    const enjoymentAdd = Math.round((amount - essentialsAdd - savingsAdd - growthAdd) * 100) / 100
+    updates.allocation = { essentials: essentialsAdd, savings: savingsAdd, growth: growthAdd, enjoyment: enjoymentAdd }
+  }
+
+  await updateDoc(txnRef, updates)
+  // Recalculate the entire period so bucket numbers stay correct
+  await recalculateCurrentPeriod(uid)
+}
+
 /* ── close current period (month) ── */
 export async function closeCurrentPeriod(uid) {
   const ref = currentPeriodRef(uid)

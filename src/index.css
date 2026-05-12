@@ -206,6 +206,67 @@ textarea {
 }
 
 /* ═══════════════════════════════════════════════════
+   OPENING ANIMATIONS — Staggered entrance system
+   ═══════════════════════════════════════════════════ */
+
+@keyframes anim-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes anim-childPop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Section-level stagger: each section appears in sequence */
+.anim-section {
+  opacity: 0;
+  transform: translateY(28px) scale(0.97);
+  will-change: opacity, transform;
+}
+
+.anim-section.anim-in {
+  animation: anim-slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--anim-order, 0) * 120ms);
+}
+
+/* Child-level stagger within a section (e.g. stat cards) */
+.anim-in .anim-child {
+  opacity: 0;
+  animation: anim-childPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--anim-order, 0) * 120ms + var(--child-order, 0) * 80ms + 150ms);
+}
+
+/* Transaction row stagger */
+.anim-txn {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+.anim-txn.anim-in {
+  animation: anim-txnSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(800ms + var(--txn-order, 0) * 60ms);
+}
+@keyframes anim-txnSlide {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ═══════════════════════════════════════════════════
    LAYOUT — SIDEBAR + MAIN
    ═══════════════════════════════════════════════════ */
 

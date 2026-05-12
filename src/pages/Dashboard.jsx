@@ -14,6 +14,36 @@ import {
 
 const PIE_COLORS = ['#000000', '#444444', '#888888', '#CCCCCC']
 const UNDO_DURATION = 60
+const COUNTUP_DURATION = 1200
+
+/* ── Animated Number Hook ── */
+function useAnimatedNumber(target, duration = COUNTUP_DURATION, enabled = true) {
+  const [value, setValue] = useState(0)
+  const rafRef = useRef(null)
+  const startRef = useRef(null)
+
+  useEffect(() => {
+    if (!enabled || target === 0) { setValue(target); return }
+    startRef.current = performance.now()
+    const animate = (now) => {
+      const elapsed = now - startRef.current
+      const progress = Math.min(elapsed / duration, 1)
+      // easeOutExpo for that premium feel
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+      setValue(Math.round(eased * target))
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate)
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [target, duration, enabled])
+
+  return value
+}
+
+function AnimatedNumber({ value, prefix = '', suffix = '' }) {
+  const animated = useAnimatedNumber(value)
+  return <>{prefix}{animated.toLocaleString('en-IN')}{suffix}</>
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -30,6 +60,7 @@ export default function Dashboard() {
   const [undoSeconds, setUndoSeconds] = useState(0)
   const [emiBurden, setEmiBurden] = useState(0)
   const [editingTxn, setEditingTxn] = useState(null)
+  const [animReady, setAnimReady] = useState(false)
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -240,11 +271,16 @@ export default function Dashboard() {
     return <div className="loading-screen"><div className="loader" /></div>
   }
 
+  // Trigger entrance animations after first paint
+  if (!animReady) {
+    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 50))
+  }
+
   const startedAtDate = periodData?.startedAt?.toDate()
 
   return (
     <>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className={`page-header anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', '--anim-order': 0 }}>
         <div>
           <h2>Dashboard</h2>
           <div className="subtitle">Your financial command center</div>
@@ -260,7 +296,7 @@ export default function Dashboard() {
       </div>
 
       {/* Date Nav + Streak */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className={`anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, '--anim-order': 1 }}>
         <div className="date-nav" style={{ marginBottom: 0, padding: '12px 16px' }}>
           <div>
             <div className="date-text">Current Period</div>
@@ -276,32 +312,32 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
+      <div className={`stats-grid anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 2 }}>
+        <div className="stat-card anim-child" style={{ '--child-order': 0 }}>
           <div className="stat-label">Period Income</div>
-          <div className="stat-value"><span className="currency">₹</span>{totalIncome.toLocaleString('en-IN')}</div>
+          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={totalIncome} /></div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card anim-child" style={{ '--child-order': 1 }}>
           <div className="stat-label">Period Expenses</div>
-          <div className="stat-value"><span className="currency">₹</span>{totalExpenses.toLocaleString('en-IN')}</div>
+          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={totalExpenses} /></div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card anim-child" style={{ '--child-order': 2 }}>
           <div className="stat-label">Period Profit</div>
-          <div className="stat-value"><span className="currency">₹</span>{profit.toLocaleString('en-IN')}</div>
+          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={profit} /></div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card anim-child" style={{ '--child-order': 3 }}>
           <div className="stat-label">Total Savings</div>
-          <div className="stat-value"><span className="currency">₹</span>{(cumulative.totalSaved || 0).toLocaleString('en-IN')}</div>
+          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={cumulative.totalSaved || 0} /></div>
           <div className="stat-sub">Income − Expenses (all time)</div>
         </div>
       </div>
 
       {/* EMI Burden Bar */}
       {emiBurden > 0 && totalIncome > 0 && (
-        <div className="emi-burden-bar-wrap">
+        <div className={`emi-burden-bar-wrap anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 3 }}>
           <div className="emi-burden-header">
             <span>💳 Monthly EMI Burden</span>
-            <span>₹{emiBurden.toLocaleString('en-IN')} locked / ₹{totalIncome.toLocaleString('en-IN')} income</span>
+            <span>₹<AnimatedNumber value={emiBurden} /> locked / ₹<AnimatedNumber value={totalIncome} /> income</span>
           </div>
           <div className="emi-burden-track">
             <div className="emi-burden-locked" style={{ width: `${Math.min((emiBurden / totalIncome) * 100, 100)}%` }}>
@@ -315,7 +351,7 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="actions-row">
+      <div className={`actions-row anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 4 }}>
         <button className="action-btn primary" onClick={() => setShowIncomeModal(true)} id="add-income-btn">
           <Plus size={16} /> Add Income
         </button>
@@ -325,7 +361,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="dashboard-charts">
+      <div className={`dashboard-charts anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 5 }}>
         <div className="insight-card">
           <h4>Last 7 Days</h4>
           <div className="chart-wrap">
@@ -392,7 +428,7 @@ export default function Dashboard() {
       </div>
 
       {/* Period Transactions */}
-      <div className="transactions-section">
+      <div className={`transactions-section anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 6 }}>
         <h3>Recent Transactions in this Period</h3>
         {transactions.length === 0 ? (
           <div className="empty-state">
@@ -401,8 +437,8 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="txn-list">
-            {transactions.slice(0, 15).map((txn) => (
-              <div className="txn-item" key={txn.id}>
+            {transactions.slice(0, 15).map((txn, idx) => (
+              <div className={`txn-item anim-txn ${animReady ? 'anim-in' : ''}`} key={txn.id} style={{ '--txn-order': idx }}>
                 <div className={`txn-icon ${txn.type}`}>
                   {txn.type === 'income' ? <Plus size={16} /> : <Minus size={16} />}
                 </div>

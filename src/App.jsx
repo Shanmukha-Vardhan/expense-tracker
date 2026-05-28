@@ -8,6 +8,7 @@ import Insights from './pages/Insights'
 import WishlistPage from './pages/Wishlist'
 import EMITracker from './pages/EMITracker'
 import MiniGoals from './pages/MiniGoals'
+import Trips from './pages/Trips'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/emi" element={<EMITracker />} />
         <Route path="/goals" element={<MiniGoals />} />
+        <Route path="/trips" element={<Trips />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

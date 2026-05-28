@@ -12,6 +12,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts'
 import { Target, TrendingUp, TrendingDown, ArrowRight, Download, Share2 } from 'lucide-react'
+import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const COLORS = ['#000000', '#444444', '#888888', '#CCCCCC']
 
@@ -36,35 +37,16 @@ export default function Insights() {
   const [reportData, setReportData] = useState(null)
   const [heatmapData, setHeatmapData] = useState([])
   const [showSnapshot, setShowSnapshot] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
+  const [animReady, setAnimReady] = useState(false)
   const snapshotRef = useRef(null)
 
   useEffect(() => {
     if (!user) return
-    setLoading(true)
+    setLoading(false) // Force skip loading for demo
 
-    const now = new Date()
-    const start = format(subDays(now, 30), 'yyyy-MM-dd')
-    const end = format(now, 'yyyy-MM-dd')
-
-    Promise.all([
-      getDailySummariesFromTransactions(user.uid, start, end),
-      getCumulativeSavings(user.uid),
-      getOrCreateCurrentPeriod(user.uid),
-      loadSavingsGoal(user.uid),
-      getLastClosedPeriod(user.uid),
-      getMonthlyReportData(user.uid),
-      getAllTransactionsForHeatmap(user.uid, 90)
-    ]).then(([summaries, cum, period, goal, lastP, report, heatTxns]) => {
-      setDailySummaries(summaries)
-      setCumulative(cum)
-      setCurrentPeriod(period)
-      setSavingsGoal(goal)
-      setLastPeriod(lastP)
-      setReportData(report)
-      // Build heatmap from transactions
-      buildHeatmap(heatTxns)
-      setLoading(false)
-    })
+    // Mock fetches for demo
+    getOrCreateCurrentPeriod(user.uid).catch(() => {})
   }, [user])
 
   const buildHeatmap = (txns) => {
@@ -93,14 +75,21 @@ export default function Insights() {
     setGoalInput('')
   }
 
-  const chartData = dailySummaries.map(d => ({
-    date: format(new Date(d.date + 'T00:00:00'), 'MMM d'),
-    income: d.totalIncome || 0,
-    expenses: d.totalExpenses || 0,
-    profit: (d.totalIncome || 0) - (d.totalExpenses || 0)
+  const chartData = DEMO_DATA.weekData.map(d => ({
+    date: d.date.length <= 3 ? d.date : format(new Date(d.date + 'T00:00:00'), 'MMM d'),
+    income: d.income || 0,
+    expenses: d.expenses || 0,
+    profit: (d.income || 0) - (d.expenses || 0)
   }))
 
-  const buckets = currentPeriod?.buckets || {}
+  const displayPeriod = {
+    totalIncome: DEMO_DATA.totalIncome,
+    totalExpenses: DEMO_DATA.totalExpenses,
+    buckets: DEMO_DATA.buckets,
+    startedAt: { toDate: () => DEMO_DATA.startedAt }
+  }
+
+  const buckets = displayPeriod.buckets || {}
   const bucketTotals = {
     essentials: buckets.essentials?.allocated || 0,
     savings: buckets.savings?.allocated || 0,
@@ -120,21 +109,24 @@ export default function Insights() {
   const essentialsSaved = totalEssentialsAllocated - totalEssentialsSpent
   const efficiencyPct = totalEssentialsAllocated > 0 ? ((essentialsSaved / totalEssentialsAllocated) * 100).toFixed(0) : 0
 
-  const goalProgress = savingsGoal > 0 ? (cumulative.totalSavings / savingsGoal) * 100 : 0
+  const displaySavings = DEMO_DATA.totalSaved
+  const displayGoal = savingsGoal > 0 ? savingsGoal : 500000
+  const goalProgress = (displaySavings / displayGoal) * 100
 
   const dynamicTips = [...TIPS]
   if (efficiencyPct > 50) {
     dynamicTips.unshift({ icon: '🏆', text: `Excellent! You saved ${efficiencyPct}% of your Essentials this period. That's discipline.` })
   }
-  if (dailySummaries.length > 0) {
-    const avgIncome = dailySummaries.reduce((s, d) => s + (d.totalIncome || 0), 0) / dailySummaries.length
+  const displayDailySummaries = DEMO_DATA.weekData
+  if (displayDailySummaries.length > 0) {
+    const avgIncome = displayDailySummaries.reduce((s, d) => s + (d.income || 0), 0) / displayDailySummaries.length
     dynamicTips.unshift({ icon: '📈', text: `Your average daily income (last 30 days): ₹${avgIncome.toFixed(0)}. Keep the momentum going.` })
   }
 
   // Smart Spending Forecast
-  const currentIncome = currentPeriod?.totalIncome || 0
-  const currentExpenses = currentPeriod?.totalExpenses || 0
-  const periodStart = currentPeriod?.startedAt?.toDate?.()
+  const currentIncome = displayPeriod.totalIncome || 0
+  const currentExpenses = displayPeriod.totalExpenses || 0
+  const periodStart = displayPeriod.startedAt?.toDate?.()
   const daysSinceStart = periodStart ? Math.max(1, Math.ceil((Date.now() - periodStart.getTime()) / (1000 * 60 * 60 * 24))) : 1
   const avgDailySpend = currentExpenses / daysSinceStart
   const daysInMonth = 30
@@ -148,7 +140,12 @@ export default function Insights() {
   const today = new Date()
   const heatmapStart = subDays(today, 83) // ~12 weeks
   const heatmapDays = eachDayOfInterval({ start: heatmapStart, end: today })
-  const maxSpend = Math.max(1, ...Object.values(heatmapData))
+  
+  const displayHeatmapData = DEMO_DATA.transactions.reduce((acc, t) => {
+    if (t.type === 'expense') acc[t.date] = (acc[t.date] || 0) + t.amount
+    return acc
+  }, {})
+  const maxSpend = Math.max(1, ...Object.values(displayHeatmapData))
 
   const getHeatColor = (amount) => {
     if (!amount || amount === 0) return 'var(--gray-100)'
@@ -160,14 +157,25 @@ export default function Insights() {
   }
 
   // Period Comparison
-  const lastIncome = lastPeriod?.totalIncome || 0
-  const lastExpenses = lastPeriod?.totalExpenses || 0
+  const displayLastPeriod = { totalIncome: 165000, totalExpenses: 52000 }
+  const lastIncome = displayLastPeriod.totalIncome || 0
+  const lastExpenses = displayLastPeriod.totalExpenses || 0
   const lastProfit = lastIncome - lastExpenses
   const currentProfit = currentIncome - currentExpenses
   const incomeDelta = lastIncome > 0 ? (((currentIncome - lastIncome) / lastIncome) * 100).toFixed(1) : 0
   const expenseDelta = lastExpenses > 0 ? (((currentExpenses - lastExpenses) / lastExpenses) * 100).toFixed(1) : 0
 
-  if (loading) return <div className="loading-screen" style={{ minHeight: 400 }}><div className="loader" /></div>
+  if (loading) return null
+
+  const finalReportData = {
+    grades: { overall: 'A', savings: 'A+', discipline: 'B+', consistency: 'A' },
+    savingsRate: 75,
+    essEfficiency: 47,
+    streak: DEMO_DATA.streak,
+    totalIncome: DEMO_DATA.totalIncome,
+    totalExpenses: DEMO_DATA.totalExpenses,
+    profit: DEMO_DATA.profit
+  }
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
@@ -181,6 +189,13 @@ export default function Insights() {
 
   return (
     <>
+      {showSplash && (
+        <CinematicSplash onDone={() => {
+          setShowSplash(false)
+          setTimeout(() => setAnimReady(true), 100)
+        }} />
+      )}
+      <div className={`dashboard-wrapper ${!showSplash ? 'ready' : ''}`}>
       <div className="page-header">
         <h2>Insights</h2>
         <div className="subtitle">Analytics · Forecast · Report Card</div>
@@ -198,7 +213,7 @@ export default function Insights() {
           <div className="heatmap-grid">
             {heatmapDays.map(day => {
               const key = format(day, 'yyyy-MM-dd')
-              const amount = heatmapData[key] || 0
+              const amount = displayHeatmapData[key] || 0
               return (
                 <div key={key} className="heatmap-cell" title={`${format(day, 'MMM d')}: ₹${amount.toLocaleString('en-IN')}`}
                   style={{ background: getHeatColor(amount) }} />
@@ -218,7 +233,7 @@ export default function Insights() {
       </div>
 
       {/* ═══ SPENDING vs LAST PERIOD ═══ */}
-      {lastPeriod && (
+      {displayLastPeriod && (
         <div className="insight-card" style={{ marginBottom: 24 }}>
           <h4>📊 Current vs Last Period</h4>
           <div className="comparison-grid">
@@ -266,7 +281,7 @@ export default function Insights() {
       </div>
 
       {/* ═══ REPORT CARD ═══ */}
-      {reportData && (
+      {finalReportData && (
         <div className="insight-card report-card-section" style={{ marginBottom: 24 }} ref={snapshotRef}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4>📋 Monthly Report Card</h4>
@@ -276,18 +291,18 @@ export default function Insights() {
             </button>
           </div>
           <div className="report-overall">
-            <div className="report-overall-grade">{reportData.grades.overall}</div>
+            <div className="report-overall-grade">{finalReportData.grades.overall}</div>
             <div className="report-overall-label">Overall Grade</div>
           </div>
           <div className="report-grades-grid">
-            <ReportGradeCard label="Savings Rate" grade={reportData.grades.savings} detail={`${reportData.savingsRate}% saved`} />
-            <ReportGradeCard label="Bucket Discipline" grade={reportData.grades.discipline} detail={`${reportData.essEfficiency}% essentials saved`} />
-            <ReportGradeCard label="Consistency" grade={reportData.grades.consistency} detail={`${reportData.streak} day streak`} />
+            <ReportGradeCard label="Savings Rate" grade={finalReportData.grades.savings} detail={`${finalReportData.savingsRate}% saved`} />
+            <ReportGradeCard label="Bucket Discipline" grade={finalReportData.grades.discipline} detail={`${finalReportData.essEfficiency}% essentials saved`} />
+            <ReportGradeCard label="Consistency" grade={finalReportData.grades.consistency} detail={`${finalReportData.streak} day streak`} />
           </div>
           <div className="report-summary-row">
-            <div><strong>Income:</strong> ₹{reportData.totalIncome.toLocaleString('en-IN')}</div>
-            <div><strong>Expenses:</strong> ₹{reportData.totalExpenses.toLocaleString('en-IN')}</div>
-            <div><strong>Net:</strong> ₹{reportData.profit.toLocaleString('en-IN')}</div>
+            <div><strong>Income:</strong> ₹{finalReportData.totalIncome.toLocaleString('en-IN')}</div>
+            <div><strong>Expenses:</strong> ₹{finalReportData.totalExpenses.toLocaleString('en-IN')}</div>
+            <div><strong>Net:</strong> ₹{finalReportData.profit.toLocaleString('en-IN')}</div>
           </div>
         </div>
       )}
@@ -298,16 +313,18 @@ export default function Insights() {
           <h4>Savings Goal</h4>
           <button className="action-btn" style={{ padding: '6px 16px', fontSize: 'var(--fs-xs)' }}
             onClick={() => setShowGoalModal(true)} id="set-goal-btn">
-            <Target size={14} /> {savingsGoal > 0 ? 'Update Goal' : 'Set Goal'}
+            <Target size={14} /> {displayGoal > 0 ? 'Update Goal' : 'Set Goal'}
           </button>
         </div>
-        {savingsGoal > 0 ? (
+        {displayGoal > 0 ? (
           <>
-            <div className="goal-bar-track"><div className="goal-bar-fill" style={{ width: `${Math.min(goalProgress, 100)}%` }} /></div>
+            <div className="goal-bar-track">
+              <div className="goal-bar-fill anim-bar" style={{ '--target-width': `${Math.min(goalProgress, 100)}%` }} />
+            </div>
             <div className="goal-stats">
-              <span className="current">₹{cumulative.totalSavings.toLocaleString('en-IN')}</span>
+              <span className="current">₹{displaySavings.toLocaleString('en-IN')}</span>
               <span>{goalProgress.toFixed(1)}%</span>
-              <span>₹{savingsGoal.toLocaleString('en-IN')}</span>
+              <span>₹{displayGoal.toLocaleString('en-IN')}</span>
             </div>
           </>
         ) : (
@@ -395,23 +412,23 @@ export default function Insights() {
       </div>
 
       {/* ═══ SNAPSHOT MODAL ═══ */}
-      {showSnapshot && reportData && (
+      {showSnapshot && finalReportData && (
         <div className="modal-overlay" onClick={() => setShowSnapshot(false)}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <h3>📸 Snapshot Card</h3>
             <div className="snapshot-card" id="snapshot-card">
-              <div className="snapshot-brand">dontwastemoney.com</div>
-              <div className="snapshot-grade">{reportData.grades.overall}</div>
+              <div className="snapshot-brand">dwm.</div>
+              <div className="snapshot-grade">{finalReportData.grades.overall}</div>
               <div className="snapshot-grade-label">Overall Grade</div>
               <div className="snapshot-stats">
-                <div><span>Income</span><strong>₹{reportData.totalIncome.toLocaleString('en-IN')}</strong></div>
-                <div><span>Expenses</span><strong>₹{reportData.totalExpenses.toLocaleString('en-IN')}</strong></div>
-                <div><span>Saved</span><strong>₹{reportData.profit.toLocaleString('en-IN')}</strong></div>
+                <div><span>Income</span><strong>₹{finalReportData.totalIncome.toLocaleString('en-IN')}</strong></div>
+                <div><span>Expenses</span><strong>₹{finalReportData.totalExpenses.toLocaleString('en-IN')}</strong></div>
+                <div><span>Saved</span><strong>₹{finalReportData.profit.toLocaleString('en-IN')}</strong></div>
               </div>
               <div className="snapshot-badges">
-                <span>💰 {reportData.savingsRate}% saved</span>
-                <span>🔥 {reportData.streak} day streak</span>
-                <span>🛡️ {reportData.essEfficiency}% discipline</span>
+                <span>💰 {finalReportData.savingsRate}% saved</span>
+                <span>🔥 {finalReportData.streak} day streak</span>
+                <span>🛡️ {finalReportData.essEfficiency}% discipline</span>
               </div>
             </div>
             <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--gray-500)', marginTop: 12, textAlign: 'center' }}>
@@ -437,8 +454,8 @@ export default function Insights() {
             {goalInput && parseFloat(goalInput) > 0 && (
               <div style={{ padding: 'var(--space-md)', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)',
                 fontSize: 'var(--fs-sm)', color: 'var(--gray-600)', marginBottom: 'var(--space-md)' }}>
-                Current savings: ₹{cumulative.totalSavings.toLocaleString('en-IN')} ·
-                Remaining: ₹{Math.max(0, parseFloat(goalInput) - cumulative.totalSavings).toLocaleString('en-IN')}
+                Current savings: ₹{displaySavings.toLocaleString('en-IN')} ·
+                Remaining: ₹{Math.max(0, parseFloat(goalInput) - displaySavings).toLocaleString('en-IN')}
               </div>
             )}
             <div className="modal-actions">
@@ -449,6 +466,7 @@ export default function Insights() {
           </div>
         </div>
       )}
+      </div>
     </>
   )
 }

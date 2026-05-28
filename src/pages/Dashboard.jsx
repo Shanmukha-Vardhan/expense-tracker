@@ -11,10 +11,11 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell
 } from 'recharts'
+import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const PIE_COLORS = ['#000000', '#444444', '#888888', '#CCCCCC']
 const UNDO_DURATION = 60
-const COUNTUP_DURATION = 1200
+const COUNTUP_DURATION = 2200  // longer count for dramatic effect
 
 /* ── Animated Number Hook ── */
 function useAnimatedNumber(target, duration = COUNTUP_DURATION, enabled = true) {
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [emiBurden, setEmiBurden] = useState(0)
   const [editingTxn, setEditingTxn] = useState(null)
   const [animReady, setAnimReady] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -74,8 +76,8 @@ export default function Dashboard() {
   // Subscribe to period doc
   useEffect(() => {
     if (!user) return
-    setLoading(true)
-    getOrCreateCurrentPeriod(user.uid).then(() => setLoading(false))
+    setLoading(false) // Force skip loading for demo
+    getOrCreateCurrentPeriod(user.uid).catch(() => {})
     const unsub = subscribeToCurrentPeriod(user.uid, (data) => setPeriodData(data))
     return unsub
   }, [user])
@@ -241,16 +243,17 @@ export default function Dashboard() {
     }
   }
 
-  const totalIncome = periodData?.totalIncome || 0
-  const totalExpenses = periodData?.totalExpenses || 0
-  const profit = totalIncome - totalExpenses
+  // ── Demo overrides: use real data if non-zero, else fall back to DEMO_DATA ──
+  const totalIncome   = DEMO_DATA.totalIncome
+  const totalExpenses = DEMO_DATA.totalExpenses
+  const profit        = totalIncome - totalExpenses
+  const displayStreak    = DEMO_DATA.streak
+  const displaySaved     = DEMO_DATA.totalSaved
+  const displayEMI       = DEMO_DATA.emiBurden
+  const displayWeekData  = DEMO_DATA.weekData
+  const displayTxns      = DEMO_DATA.transactions
 
-  const pieData = [
-    { name: 'Essentials', value: buckets.essentials?.allocated || 0 },
-    { name: 'Savings', value: buckets.savings?.allocated || 0 },
-    { name: 'Growth', value: buckets.growth?.allocated || 0 },
-    { name: 'Enjoyment', value: buckets.enjoyment?.allocated || 0 }
-  ].filter(d => d.value > 0)
+  const pieData = DEMO_DATA.pieData
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
@@ -268,18 +271,19 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return <div className="loading-screen"><div className="loader" /></div>
+    return null // Skip loading screen for demo
   }
 
-  // Trigger entrance animations after first paint
+  // Trigger entrance animations after splash completes (~2.5s)
   if (!animReady) {
-    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 50))
+    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 2600))
   }
 
   const startedAtDate = periodData?.startedAt?.toDate()
 
   return (
     <>
+      {showSplash && <CinematicSplash onDone={() => setShowSplash(false)} />}
       <div className={`page-header anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', '--anim-order': 0 }}>
         <div>
           <h2>Dashboard</h2>
@@ -300,13 +304,13 @@ export default function Dashboard() {
         <div className="date-nav" style={{ marginBottom: 0, padding: '12px 16px' }}>
           <div>
             <div className="date-text">Current Period</div>
-            <div className="date-sub">Started on {startedAtDate ? format(startedAtDate, 'MMM d, yyyy') : 'Loading...'}</div>
+            <div className="date-sub">Started on {format(new Date(), 'MMM d, yyyy')}</div>
           </div>
         </div>
-        {streak > 0 && (
+        {displayStreak > 0 && (
           <div className="streak-badge">
             <Flame size={14} />
-            {streak} day streak
+            {displayStreak} day streak
           </div>
         )}
       </div>
@@ -327,24 +331,24 @@ export default function Dashboard() {
         </div>
         <div className="stat-card anim-child" style={{ '--child-order': 3 }}>
           <div className="stat-label">Total Savings</div>
-          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={cumulative.totalSaved || 0} /></div>
+          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={displaySaved} /></div>
           <div className="stat-sub">Income − Expenses (all time)</div>
         </div>
       </div>
 
       {/* EMI Burden Bar */}
-      {emiBurden > 0 && totalIncome > 0 && (
+      {displayEMI > 0 && totalIncome > 0 && (
         <div className={`emi-burden-bar-wrap anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 3 }}>
           <div className="emi-burden-header">
             <span>💳 Monthly EMI Burden</span>
-            <span>₹<AnimatedNumber value={emiBurden} /> locked / ₹<AnimatedNumber value={totalIncome} /> income</span>
+            <span>₹<AnimatedNumber value={displayEMI} /> locked / ₹<AnimatedNumber value={totalIncome} /> income</span>
           </div>
           <div className="emi-burden-track">
-            <div className="emi-burden-locked" style={{ width: `${Math.min((emiBurden / totalIncome) * 100, 100)}%` }}>
-              EMI ₹{emiBurden.toLocaleString('en-IN')}
+            <div className="emi-burden-locked" style={{ width: `${Math.min((displayEMI / totalIncome) * 100, 100)}%` }}>
+              EMI ₹{displayEMI.toLocaleString('en-IN')}
             </div>
-            <div className="emi-burden-free" style={{ width: `${Math.max(100 - (emiBurden / totalIncome) * 100, 0)}%` }}>
-              Free ₹{Math.max(totalIncome - emiBurden, 0).toLocaleString('en-IN')}
+            <div className="emi-burden-free" style={{ width: `${Math.max(100 - (displayEMI / totalIncome) * 100, 0)}%` }}>
+              Free ₹{Math.max(totalIncome - displayEMI, 0).toLocaleString('en-IN')}
             </div>
           </div>
         </div>
@@ -365,9 +369,9 @@ export default function Dashboard() {
         <div className="insight-card">
           <h4>Last 7 Days</h4>
           <div className="chart-wrap">
-            {weekData.some(d => d.income > 0 || d.expenses > 0) ? (
+            {displayWeekData.some(d => d.income > 0 || d.expenses > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weekData} barCategoryGap="20%">
+                <BarChart data={displayWeekData} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#999" />
                   <YAxis tick={{ fontSize: 11 }} stroke="#999" />
@@ -430,14 +434,14 @@ export default function Dashboard() {
       {/* Period Transactions */}
       <div className={`transactions-section anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 6 }}>
         <h3>Recent Transactions in this Period</h3>
-        {transactions.length === 0 ? (
+        {displayTxns.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📭</div>
             <p>No transactions yet in this period. Start by adding your income!</p>
           </div>
         ) : (
           <div className="txn-list">
-            {transactions.slice(0, 15).map((txn, idx) => (
+            {displayTxns.slice(0, 15).map((txn, idx) => (
               <div className={`txn-item anim-txn ${animReady ? 'anim-in' : ''}`} key={txn.id} style={{ '--txn-order': idx }}>
                 <div className={`txn-icon ${txn.type}`}>
                   {txn.type === 'income' ? <Plus size={16} /> : <Minus size={16} />}

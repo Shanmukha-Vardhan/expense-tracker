@@ -9,6 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from 'recharts'
 import { Settings, Check } from 'lucide-react'
+import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const BUCKET_META = [
   { key: 'essentials', label: 'Essentials', emoji: '🟢', desc: 'Daily needs — food, transport, supplies. First line of spending.' },
@@ -26,6 +27,8 @@ export default function Buckets() {
   const [allTimeTotals, setAllTimeTotals] = useState(null)
   const [weekData, setWeekData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showSplash, setShowSplash] = useState(true)
+  const [animReady, setAnimReady] = useState(false)
 
   // Rule editing
   const [editingRules, setEditingRules] = useState(false)
@@ -130,12 +133,34 @@ export default function Buckets() {
 
   const ruleTotal = rules.essentials + rules.savings + rules.growth + rules.enjoyment
 
-  const buckets = dayData?.buckets || {
+  const displayDayData = dayData && dayData.buckets ? dayData : {
+    buckets: DEMO_DATA.buckets,
+    rolledToSavings: 1200
+  }
+
+  const buckets = displayDayData.buckets || {
     essentials: { allocated: 0, spent: 0 },
     savings: { allocated: 0, spent: 0 },
     growth: { allocated: 0, spent: 0 },
     enjoyment: { allocated: 0, spent: 0 }
   }
+
+  const displayAllTimeTotals = allTimeTotals && allTimeTotals.totalIncome > 0 ? allTimeTotals : {
+    essentials: { allocated: 150000, spent: 142000 },
+    savings: { allocated: 900000, spent: 0 },
+    growth: { allocated: 375000, spent: 300000 },
+    enjoyment: { allocated: 75000, spent: 70000 },
+    totalRolled: 25000,
+    totalIncome: 1500000,
+    totalExpenses: 512000
+  }
+
+  const displayWeekData = weekData.length > 0 ? weekData : [
+    { date: 'Jan 31', Essentials: 18000, Savings: 108000, Growth: 45000, Enjoyment: 9000 },
+    { date: 'Feb 28', Essentials: 18500, Savings: 111000, Growth: 46250, Enjoyment: 9250 },
+    { date: 'Mar 31', Essentials: 19000, Savings: 114000, Growth: 47500, Enjoyment: 9500 },
+    { date: 'Apr 30', Essentials: 18750, Savings: 112500, Growth: 46875, Enjoyment: 9375 },
+  ]
 
   // Pie chart data for today
   const todayPieData = BUCKET_META.map(({ key, label }) => {
@@ -159,6 +184,13 @@ export default function Buckets() {
 
   return (
     <>
+      {showSplash && (
+        <CinematicSplash onDone={() => {
+          setShowSplash(false)
+          setTimeout(() => setAnimReady(true), 100)
+        }} />
+      )}
+      <div className={`dashboard-wrapper ${!showSplash ? 'ready' : ''}`}>
       <div className="page-header">
         <h2>Buckets</h2>
         <div className="subtitle">Your money allocation system</div>
@@ -208,9 +240,9 @@ export default function Buckets() {
 
               <div className="bucket-detail-desc">{desc}</div>
 
-              {dayData?.rolledToSavings > 0 && key === 'savings' && (
+              {displayDayData?.rolledToSavings > 0 && key === 'savings' && (
                 <div className="bucket-rolled-notice">
-                  +₹{dayData.rolledToSavings.toLocaleString('en-IN')} rolled from Essentials
+                  +₹{displayDayData.rolledToSavings.toLocaleString('en-IN')} rolled from Essentials
                 </div>
               )}
             </div>
@@ -267,9 +299,9 @@ export default function Buckets() {
         <div className="insight-card">
           <h4>Past Periods Allocation</h4>
           <div className="chart-wrap">
-            {weekData.length > 0 ? (
+            {displayWeekData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weekData} barCategoryGap="20%">
+                <BarChart data={displayWeekData} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#999" />
                   <YAxis tick={{ fontSize: 11 }} stroke="#999" />
@@ -293,35 +325,35 @@ export default function Buckets() {
       </div>
 
       {/* All-Time Totals */}
-      {allTimeTotals && (
+      {displayAllTimeTotals && (
         <>
           <h3 className="buckets-heading" style={{ marginTop: 48 }}>All-Time Totals (Closed Periods)</h3>
           <div className="alltime-grid">
             <div className="alltime-card">
               <div className="alltime-label">🔵 Net Savings</div>
               <div className="alltime-value">
-                <span className="currency">₹</span>{(allTimeTotals.savings.allocated - allTimeTotals.savings.spent).toLocaleString('en-IN')}
+                <span className="currency">₹</span>{(displayAllTimeTotals.savings.allocated - displayAllTimeTotals.savings.spent).toLocaleString('en-IN')}
               </div>
-              <div className="alltime-sub">Allocated: ₹{allTimeTotals.savings.allocated.toLocaleString('en-IN')}</div>
+              <div className="alltime-sub">Allocated: ₹{displayAllTimeTotals.savings.allocated.toLocaleString('en-IN')}</div>
             </div>
             <div className="alltime-card">
               <div className="alltime-label">🟡 Net Growth</div>
               <div className="alltime-value">
-                <span className="currency">₹</span>{(allTimeTotals.growth.allocated - allTimeTotals.growth.spent).toLocaleString('en-IN')}
+                <span className="currency">₹</span>{(displayAllTimeTotals.growth.allocated - displayAllTimeTotals.growth.spent).toLocaleString('en-IN')}
               </div>
-              <div className="alltime-sub">Allocated: ₹{allTimeTotals.growth.allocated.toLocaleString('en-IN')}</div>
+              <div className="alltime-sub">Allocated: ₹{displayAllTimeTotals.growth.allocated.toLocaleString('en-IN')}</div>
             </div>
             <div className="alltime-card">
               <div className="alltime-label">💰 Total Saved</div>
               <div className="alltime-value">
-                <span className="currency">₹</span>{(allTimeTotals.totalIncome - allTimeTotals.totalExpenses).toLocaleString('en-IN')}
+                <span className="currency">₹</span>{(displayAllTimeTotals.totalIncome - displayAllTimeTotals.totalExpenses).toLocaleString('en-IN')}
               </div>
               <div className="alltime-sub">Income − Expenses</div>
             </div>
             <div className="alltime-card">
               <div className="alltime-label">↩️ Rolled to Savings</div>
               <div className="alltime-value">
-                <span className="currency">₹</span>{allTimeTotals.totalRolled.toLocaleString('en-IN')}
+                <span className="currency">₹</span>{displayAllTimeTotals.totalRolled.toLocaleString('en-IN')}
               </div>
               <div className="alltime-sub">From unused Essentials</div>
             </div>
@@ -433,6 +465,7 @@ export default function Buckets() {
         <div className="rule-table-footnote">
           Unused Essentials automatically move to Savings at midnight. Total must equal 100%.
         </div>
+      </div>
       </div>
     </>
   )

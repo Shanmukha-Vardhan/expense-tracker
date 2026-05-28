@@ -600,3 +600,122 @@ export async function logMiniGoalEarning(uid, goalId, amount, date) {
 export async function deleteMiniGoal(uid, goalId) {
   return deleteDoc(doc(db, 'users', uid, 'minigoals', goalId))
 }
+
+/* ══════════════════════════════════════════
+   TRIP TRACKER
+   ══════════════════════════════════════════ */
+
+const tripsCol = (uid) => collection(db, 'users', uid, 'trips')
+
+export async function addTrip(uid, data) {
+  return addDoc(tripsCol(uid), {
+    name: data.name,
+    originalBudget: Number(data.originalBudget),
+    totalBudget: Number(data.originalBudget),
+    topUps: [],
+    startDate: data.startDate,
+    endDate: data.endDate,
+    status: 'active', // 'active' | 'completed' (upcoming calculated dynamically based on date)
+    expenses: [],
+    income: [],
+    createdAt: Timestamp.now(),
+    completedAt: null
+  })
+}
+
+export async function getTrips(uid) {
+  try {
+    const snap = await getDocs(tripsCol(uid))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (err) {
+    console.error('getTrips error:', err)
+    return []
+  }
+}
+
+export async function getTrip(uid, tripId) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  const snap = await getDoc(ref)
+  if (snap.exists()) {
+    return { id: snap.id, ...snap.data() }
+  }
+  return null
+}
+
+export async function addTripExpense(uid, tripId, expense) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  const expenses = [...(data.expenses || [])]
+  expenses.push({
+    id: Math.random().toString(36).substring(2, 9),
+    amount: Number(expense.amount),
+    description: expense.description,
+    category: expense.category,
+    date: expense.date,
+    timestamp: Timestamp.now()
+  })
+  await updateDoc(ref, { expenses })
+  return expenses
+}
+
+export async function addTripIncome(uid, tripId, incomeVal) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  const income = [...(data.income || [])]
+  income.push({
+    id: Math.random().toString(36).substring(2, 9),
+    amount: Number(incomeVal.amount),
+    description: incomeVal.description,
+    date: incomeVal.date,
+    timestamp: Timestamp.now()
+  })
+  await updateDoc(ref, { income })
+  return income
+}
+
+export async function deleteTripEntry(uid, tripId, entryId, type) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  if (type === 'expense') {
+    const expenses = (data.expenses || []).filter(e => e.id !== entryId)
+    await updateDoc(ref, { expenses })
+  } else if (type === 'income') {
+    const income = (data.income || []).filter(i => i.id !== entryId)
+    await updateDoc(ref, { income })
+  }
+}
+
+export async function topUpTrip(uid, tripId, amount, note, date) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return
+  const data = snap.data()
+  const topUps = [...(data.topUps || [])]
+  const val = Number(amount)
+  topUps.push({
+    amount: val,
+    note: note || 'Top Up',
+    date: date || new Date().toISOString().split('T')[0]
+  })
+  const totalBudget = (Number(data.originalBudget) || 0) + topUps.reduce((sum, t) => sum + (t.amount || 0), 0)
+  await updateDoc(ref, { topUps, totalBudget })
+}
+
+export async function completeTrip(uid, tripId) {
+  const ref = doc(db, 'users', uid, 'trips', tripId)
+  await updateDoc(ref, {
+    status: 'completed',
+    completedAt: Timestamp.now()
+  })
+}
+
+export async function deleteTrip(uid, tripId) {
+  return deleteDoc(doc(db, 'users', uid, 'trips', tripId))
+}
+

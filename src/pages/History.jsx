@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { getTransactions, getArchivedPeriods } from '../services/firestore'
 import { format, subDays, startOfWeek, startOfMonth, endOfWeek, endOfMonth, parse } from 'date-fns'
 import { Plus, Minus, ArrowUpRight, ArrowDownRight, List, CalendarDays, Search } from 'lucide-react'
-import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const FILTERS = [
   { key: 'today', label: 'Today' },
@@ -23,19 +22,49 @@ export default function History() {
   const [searchQuery, setSearchQuery] = useState('')
   const [minAmount, setMinAmount] = useState('')
   const [maxAmount, setMaxAmount] = useState('')
-  const [showSplash, setShowSplash] = useState(true)
-  const [animReady, setAnimReady] = useState(false)
 
   useEffect(() => {
     if (!user) return
-    setLoading(false) // Force skip loading for demo
+    setLoading(true)
+
+    const now = new Date()
+    let startDate, endDate
+
+    switch (filter) {
+      case 'today':
+        startDate = endDate = format(now, 'yyyy-MM-dd')
+        break
+      case 'week':
+        startDate = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        endDate = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        break
+      case 'month':
+        startDate = format(startOfMonth(now), 'yyyy-MM-dd')
+        endDate = format(endOfMonth(now), 'yyyy-MM-dd')
+        break
+      case 'all':
+        startDate = '2020-01-01'
+        endDate = format(now, 'yyyy-MM-dd')
+        break
+    }
+
+    if (viewMode === 'transactions') {
+      getTransactions(user.uid, startDate, endDate).then((txns) => {
+        setTransactions(txns)
+        setLoading(false)
+      })
+    } else {
+      getArchivedPeriods(user.uid).then((periods) => {
+        setArchivedPeriods(periods)
+        setLoading(false)
+      })
+    }
   }, [user, filter, viewMode])
 
   // Apply all filters: type, search, amount range
-  const displayTransactions = DEMO_DATA.transactions
   let filtered = typeFilter === 'all'
-    ? displayTransactions
-    : displayTransactions.filter(t => t.type === typeFilter)
+    ? transactions
+    : transactions.filter(t => t.type === typeFilter)
 
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase()
@@ -54,44 +83,8 @@ export default function History() {
     grouped[txn.date].push(txn)
   })
 
-  const displayArchived = [
-    {
-      id: 'mock-1',
-      closedAt: { toDate: () => new Date('2026-04-30T23:59:59') },
-      totalIncome: 165000,
-      totalExpenses: 52000,
-      buckets: {
-        essentials: { allocated: 16500, spent: 14200 },
-        savings: { allocated: 99000 },
-        growth: { allocated: 41250 },
-        enjoyment: { allocated: 8250, spent: 8250 }
-      },
-      rolledToSavings: 2300
-    },
-    {
-      id: 'mock-2',
-      closedAt: { toDate: () => new Date('2026-03-31T23:59:59') },
-      totalIncome: 155000,
-      totalExpenses: 48000,
-      buckets: {
-        essentials: { allocated: 15500, spent: 15000 },
-        savings: { allocated: 93000 },
-        growth: { allocated: 38750 },
-        enjoyment: { allocated: 7750, spent: 7000 }
-      },
-      rolledToSavings: 500
-    }
-  ]
-
   return (
     <>
-      {showSplash && (
-        <CinematicSplash onDone={() => {
-          setShowSplash(false)
-          setTimeout(() => setAnimReady(true), 100)
-        }} />
-      )}
-      <div className={`dashboard-wrapper ${!showSplash ? 'ready' : ''}`}>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>History</h2>
@@ -217,7 +210,9 @@ export default function History() {
 
           {/* Transaction List */}
           {loading ? (
-            null
+            <div className="loading-screen" style={{ minHeight: 200 }}>
+              <div className="loader" />
+            </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📋</div>
@@ -257,15 +252,17 @@ export default function History() {
       ) : (
         <>
           {loading ? (
-            null
-          ) : displayArchived.length === 0 ? (
+            <div className="loading-screen" style={{ minHeight: 200 }}>
+              <div className="loader" />
+            </div>
+          ) : archivedPeriods.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📅</div>
               <p>No past months found. Close your current month on the Dashboard to see it here.</p>
             </div>
           ) : (
             <div className="months-grid" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {displayArchived.map((period) => {
+              {archivedPeriods.map((period) => {
                 let monthLabel = 'Past Month'
                 if (period.closedAt?.toDate) {
                   monthLabel = format(period.closedAt.toDate(), 'MMMM yyyy')
@@ -335,7 +332,6 @@ export default function History() {
           )}
         </>
       )}
-      </div>
     </>
   )
 }

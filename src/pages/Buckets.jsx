@@ -9,7 +9,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from 'recharts'
 import { Settings, Check } from 'lucide-react'
-import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const BUCKET_META = [
   { key: 'essentials', label: 'Essentials', emoji: '🟢', desc: 'Daily needs — food, transport, supplies. First line of spending.' },
@@ -27,7 +26,6 @@ export default function Buckets() {
   const [allTimeTotals, setAllTimeTotals] = useState(null)
   const [weekData, setWeekData] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showSplash, setShowSplash] = useState(true)
   const [animReady, setAnimReady] = useState(false)
 
   // Rule editing
@@ -41,7 +39,10 @@ export default function Buckets() {
     if (!user) return
     setLoading(true)
 
-    getOrCreateCurrentPeriod(user.uid).then(() => setLoading(false))
+    getOrCreateCurrentPeriod(user.uid).then(() => {
+      setLoading(false)
+      setTimeout(() => setAnimReady(true), 50)
+    })
 
     const unsub = subscribeToCurrentPeriod(user.uid, (data) => {
       setDayData(data)
@@ -133,34 +134,30 @@ export default function Buckets() {
 
   const ruleTotal = rules.essentials + rules.savings + rules.growth + rules.enjoyment
 
-  const displayDayData = dayData && dayData.buckets ? dayData : {
-    buckets: DEMO_DATA.buckets,
-    rolledToSavings: 1200
+  const displayDayData = dayData || {
+    buckets: {
+      essentials: { allocated: 0, spent: 0 },
+      savings: { allocated: 0, spent: 0 },
+      growth: { allocated: 0, spent: 0 },
+      enjoyment: { allocated: 0, spent: 0 }
+    },
+    rolledToSavings: 0
   }
 
-  const buckets = displayDayData.buckets || {
+  const buckets = displayDayData.buckets
+
+  const displayAllTimeTotals = allTimeTotals || {
     essentials: { allocated: 0, spent: 0 },
     savings: { allocated: 0, spent: 0 },
     growth: { allocated: 0, spent: 0 },
-    enjoyment: { allocated: 0, spent: 0 }
+    enjoyment: { allocated: 0, spent: 0 },
+    totalRolled: 0,
+    totalIncome: 0,
+    totalExpenses: 0
   }
 
-  const displayAllTimeTotals = allTimeTotals && allTimeTotals.totalIncome > 0 ? allTimeTotals : {
-    essentials: { allocated: 150000, spent: 142000 },
-    savings: { allocated: 900000, spent: 0 },
-    growth: { allocated: 375000, spent: 300000 },
-    enjoyment: { allocated: 75000, spent: 70000 },
-    totalRolled: 25000,
-    totalIncome: 1500000,
-    totalExpenses: 512000
-  }
+  const displayWeekData = weekData
 
-  const displayWeekData = weekData.length > 0 ? weekData : [
-    { date: 'Jan 31', Essentials: 18000, Savings: 108000, Growth: 45000, Enjoyment: 9000 },
-    { date: 'Feb 28', Essentials: 18500, Savings: 111000, Growth: 46250, Enjoyment: 9250 },
-    { date: 'Mar 31', Essentials: 19000, Savings: 114000, Growth: 47500, Enjoyment: 9500 },
-    { date: 'Apr 30', Essentials: 18750, Savings: 112500, Growth: 46875, Enjoyment: 9375 },
-  ]
 
   // Pie chart data for today
   const todayPieData = BUCKET_META.map(({ key, label }) => {
@@ -184,13 +181,7 @@ export default function Buckets() {
 
   return (
     <>
-      {showSplash && (
-        <CinematicSplash onDone={() => {
-          setShowSplash(false)
-          setTimeout(() => setAnimReady(true), 100)
-        }} />
-      )}
-      <div className={`dashboard-wrapper ${!showSplash ? 'ready' : ''}`}>
+      <div>
       <div className="page-header">
         <h2>Buckets</h2>
         <div className="subtitle">Your money allocation system</div>

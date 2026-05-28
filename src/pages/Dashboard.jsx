@@ -11,11 +11,11 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell
 } from 'recharts'
-import { CinematicSplash, DEMO_DATA } from '../components/DemoMode'
 
 const PIE_COLORS = ['#000000', '#444444', '#888888', '#CCCCCC']
 const UNDO_DURATION = 60
-const COUNTUP_DURATION = 2200  // longer count for dramatic effect
+const COUNTUP_DURATION = 1200
+
 
 /* ── Animated Number Hook ── */
 function useAnimatedNumber(target, duration = COUNTUP_DURATION, enabled = true) {
@@ -62,7 +62,6 @@ export default function Dashboard() {
   const [emiBurden, setEmiBurden] = useState(0)
   const [editingTxn, setEditingTxn] = useState(null)
   const [animReady, setAnimReady] = useState(false)
-  const [showSplash, setShowSplash] = useState(true)
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -76,8 +75,8 @@ export default function Dashboard() {
   // Subscribe to period doc
   useEffect(() => {
     if (!user) return
-    setLoading(false) // Force skip loading for demo
-    getOrCreateCurrentPeriod(user.uid).catch(() => {})
+    setLoading(true)
+    getOrCreateCurrentPeriod(user.uid).then(() => setLoading(false))
     const unsub = subscribeToCurrentPeriod(user.uid, (data) => setPeriodData(data))
     return unsub
   }, [user])
@@ -243,17 +242,21 @@ export default function Dashboard() {
     }
   }
 
-  // ── Demo overrides: use real data if non-zero, else fall back to DEMO_DATA ──
-  const totalIncome   = DEMO_DATA.totalIncome
-  const totalExpenses = DEMO_DATA.totalExpenses
-  const profit        = totalIncome - totalExpenses
-  const displayStreak    = DEMO_DATA.streak
-  const displaySaved     = DEMO_DATA.totalSaved
-  const displayEMI       = DEMO_DATA.emiBurden
-  const displayWeekData  = DEMO_DATA.weekData
-  const displayTxns      = DEMO_DATA.transactions
+  const totalIncome = periodData?.totalIncome || 0
+  const totalExpenses = periodData?.totalExpenses || 0
+  const profit = totalIncome - totalExpenses
+  const displayStreak = streak
+  const displaySaved = cumulative.totalSaved || 0
+  const displayEMI = emiBurden
+  const displayWeekData = weekData
+  const displayTxns = transactions
 
-  const pieData = DEMO_DATA.pieData
+  const pieData = [
+    { name: 'Essentials', value: buckets.essentials?.allocated || 0 },
+    { name: 'Savings', value: buckets.savings?.allocated || 0 },
+    { name: 'Growth', value: buckets.growth?.allocated || 0 },
+    { name: 'Enjoyment', value: buckets.enjoyment?.allocated || 0 }
+  ].filter(d => d.value > 0)
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
@@ -271,19 +274,18 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return null // Skip loading screen for demo
+    return <div className="loading-screen"><div className="loader" /></div>
   }
 
-  // Trigger entrance animations after splash completes (~2.5s)
+  // Trigger entrance animations after first paint
   if (!animReady) {
-    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 2600))
+    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 50))
   }
 
   const startedAtDate = periodData?.startedAt?.toDate()
 
   return (
     <>
-      {showSplash && <CinematicSplash onDone={() => setShowSplash(false)} />}
       <div className={`page-header anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', '--anim-order': 0 }}>
         <div>
           <h2>Dashboard</h2>

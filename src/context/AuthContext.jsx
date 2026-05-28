@@ -12,7 +12,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        await ensureUserProfile(firebaseUser)
+        try {
+          await ensureUserProfile(firebaseUser)
+        } catch (err) {
+          console.error('ensureUserProfile failed:', err)
+        }
         setUser(firebaseUser)
       } else {
         setUser(null)

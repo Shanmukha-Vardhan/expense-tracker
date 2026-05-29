@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import {
   getOrCreateCurrentPeriod, subscribeToCurrentPeriod, addIncome, addExpense,
   getTransactions, getWorkStreak, getCumulativeSavings, getDailySummariesFromTransactions,
-  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction, updateTransaction, getActiveEMIBurden
+  closeCurrentPeriod, recalculateCurrentPeriod, deleteTransaction, updateTransaction, getActiveEMIBurden,
+  getMomViewStatus, updateMomViewStatus
 } from '../services/firestore'
 import { format, subDays, isSameDay } from 'date-fns'
 import { Plus, Minus, X, Flame, Archive, RefreshCw, Undo2, Pencil, Trash2 } from 'lucide-react'
@@ -14,37 +15,7 @@ import {
 
 const PIE_COLORS = ['#000000', '#444444', '#888888', '#CCCCCC']
 const UNDO_DURATION = 60
-const COUNTUP_DURATION = 1200
 
-
-/* ── Animated Number Hook ── */
-function useAnimatedNumber(target, duration = COUNTUP_DURATION, enabled = true) {
-  const [value, setValue] = useState(0)
-  const rafRef = useRef(null)
-  const startRef = useRef(null)
-
-  useEffect(() => {
-    if (!enabled || target === 0) { setValue(target); return }
-    startRef.current = performance.now()
-    const animate = (now) => {
-      const elapsed = now - startRef.current
-      const progress = Math.min(elapsed / duration, 1)
-      // easeOutExpo for that premium feel
-      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
-      setValue(Math.round(eased * target))
-      if (progress < 1) rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [target, duration, enabled])
-
-  return value
-}
-
-function AnimatedNumber({ value, prefix = '', suffix = '' }) {
-  const animated = useAnimatedNumber(value)
-  return <>{prefix}{animated.toLocaleString('en-IN')}{suffix}</>
-}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -61,7 +32,43 @@ export default function Dashboard() {
   const [undoSeconds, setUndoSeconds] = useState(0)
   const [emiBurden, setEmiBurden] = useState(0)
   const [editingTxn, setEditingTxn] = useState(null)
-  const [animReady, setAnimReady] = useState(false)
+  const [momViewEnabled, setMomViewEnabled] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
+
+  // Load Mom View status
+  useEffect(() => {
+    if (!user) return
+    getMomViewStatus(user.uid).then((status) => {
+      setMomViewEnabled(status?.enabled || false)
+    })
+  }, [user])
+
+  const handleToggleMomView = async (e) => {
+    const checked = e.target.checked
+    setMomViewEnabled(checked)
+    try {
+      await updateMomViewStatus(user.uid, checked)
+      setWarning(checked ? '👩 Mom View Sharing Enabled!' : '🛑 Mom View Sharing Disabled!')
+      setTimeout(() => setWarning(null), 3000)
+    } catch (err) {
+      console.error('Toggle mom view failed:', err)
+      setMomViewEnabled(!checked)
+      setWarning('⚠️ Failed to update Mom View Sharing status.')
+      setTimeout(() => setWarning(null), 4000)
+    }
+  }
+
+  const handleCopyLink = () => {
+    const shareUrl = `${window.location.origin}/mom?uid=${user.uid}`
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopySuccess(true)
+        setTimeout(() => setCopySuccess(false), 2000)
+      })
+      .catch(err => {
+        console.error('Failed to copy link:', err)
+      })
+  }
   const undoTimerRef = useRef(null)
   const undoCountdownRef = useRef(null)
 
@@ -277,16 +284,11 @@ export default function Dashboard() {
     return <div className="loading-screen"><div className="loader" /></div>
   }
 
-  // Trigger entrance animations after first paint
-  if (!animReady) {
-    requestAnimationFrame(() => setTimeout(() => setAnimReady(true), 50))
-  }
-
   const startedAtDate = periodData?.startedAt?.toDate()
 
   return (
     <>
-      <div className={`page-header anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', '--anim-order': 0 }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>Dashboard</h2>
           <div className="subtitle">Your financial command center</div>
@@ -302,7 +304,7 @@ export default function Dashboard() {
       </div>
 
       {/* Date Nav + Streak */}
-      <div className={`anim-section ${animReady ? 'anim-in' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, '--anim-order': 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div className="date-nav" style={{ marginBottom: 0, padding: '12px 16px' }}>
           <div>
             <div className="date-text">Current Period</div>
@@ -318,32 +320,32 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className={`stats-grid anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 2 }}>
-        <div className="stat-card anim-child" style={{ '--child-order': 0 }}>
+      <div className="stats-grid">
+        <div className="stat-card">
           <div className="stat-label">Period Income</div>
-          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={totalIncome} /></div>
+          <div className="stat-value"><span className="currency">₹</span>{totalIncome.toLocaleString('en-IN')}</div>
         </div>
-        <div className="stat-card anim-child" style={{ '--child-order': 1 }}>
+        <div className="stat-card">
           <div className="stat-label">Period Expenses</div>
-          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={totalExpenses} /></div>
+          <div className="stat-value"><span className="currency">₹</span>{totalExpenses.toLocaleString('en-IN')}</div>
         </div>
-        <div className="stat-card anim-child" style={{ '--child-order': 2 }}>
+        <div className="stat-card">
           <div className="stat-label">Period Profit</div>
-          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={profit} /></div>
+          <div className="stat-value"><span className="currency">₹</span>{profit.toLocaleString('en-IN')}</div>
         </div>
-        <div className="stat-card anim-child" style={{ '--child-order': 3 }}>
+        <div className="stat-card">
           <div className="stat-label">Total Savings</div>
-          <div className="stat-value"><span className="currency">₹</span><AnimatedNumber value={displaySaved} /></div>
+          <div className="stat-value"><span className="currency">₹</span>{displaySaved.toLocaleString('en-IN')}</div>
           <div className="stat-sub">Income − Expenses (all time)</div>
         </div>
       </div>
 
       {/* EMI Burden Bar */}
       {displayEMI > 0 && totalIncome > 0 && (
-        <div className={`emi-burden-bar-wrap anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 3 }}>
+        <div className="emi-burden-bar-wrap">
           <div className="emi-burden-header">
             <span>💳 Monthly EMI Burden</span>
-            <span>₹<AnimatedNumber value={displayEMI} /> locked / ₹<AnimatedNumber value={totalIncome} /> income</span>
+            <span>₹{displayEMI.toLocaleString('en-IN')} locked / ₹{totalIncome.toLocaleString('en-IN')} income</span>
           </div>
           <div className="emi-burden-track">
             <div className="emi-burden-locked" style={{ width: `${Math.min((displayEMI / totalIncome) * 100, 100)}%` }}>
@@ -357,7 +359,7 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className={`actions-row anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 4 }}>
+      <div className="actions-row">
         <button className="action-btn primary" onClick={() => setShowIncomeModal(true)} id="add-income-btn">
           <Plus size={16} /> Add Income
         </button>
@@ -367,7 +369,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className={`dashboard-charts anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 5 }}>
+      <div className="dashboard-charts">
         <div className="insight-card">
           <h4>Last 7 Days</h4>
           <div className="chart-wrap">
@@ -434,7 +436,7 @@ export default function Dashboard() {
       </div>
 
       {/* Period Transactions */}
-      <div className={`transactions-section anim-section ${animReady ? 'anim-in' : ''}`} style={{ '--anim-order': 6 }}>
+      <div className="transactions-section">
         <h3>Recent Transactions in this Period</h3>
         {displayTxns.length === 0 ? (
           <div className="empty-state">
@@ -443,8 +445,8 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="txn-list">
-            {displayTxns.slice(0, 15).map((txn, idx) => (
-              <div className={`txn-item anim-txn ${animReady ? 'anim-in' : ''}`} key={txn.id} style={{ '--txn-order': idx }}>
+            {displayTxns.slice(0, 15).map((txn) => (
+              <div className="txn-item" key={txn.id}>
                 <div className={`txn-icon ${txn.type}`}>
                   {txn.type === 'income' ? <Plus size={16} /> : <Minus size={16} />}
                 </div>
@@ -474,6 +476,57 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Mom View Sharing Card */}
+      <div className="mom-share-card" style={{ marginTop: 24, padding: 20, background: '#fff', borderRadius: 12, border: '1px solid #eee' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 24 }}>👩</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Share with Mom</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--gray-500)' }}>
+                Let her monitor your spending in real time (expenses only)
+              </p>
+            </div>
+          </div>
+          <label className="mom-switch">
+            <input 
+              type="checkbox" 
+              checked={momViewEnabled} 
+              onChange={handleToggleMomView} 
+            />
+            <span className="mom-switch-slider"></span>
+          </label>
+        </div>
+
+        {momViewEnabled && (
+          <div className="mom-share-details" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px dashed #eee' }}>
+            <div className="mom-link-box" style={{ display: 'flex', gap: 8, background: '#f9f9f9', padding: '10px 12px', borderRadius: 8, alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span className="mom-link-text" style={{ fontSize: 13, color: '#333', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                {window.location.origin}/mom?uid={user.uid}
+              </span>
+              <button 
+                onClick={handleCopyLink} 
+                className="action-btn primary" 
+                style={{ padding: '6px 12px', fontSize: 12, flexShrink: 0 }}
+              >
+                {copySuccess ? 'Copied! ✅' : 'Copy Link'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 24, fontSize: 12 }}>
+              <div>
+                <span style={{ color: 'var(--gray-500)' }}>Security Passcode:</span>{' '}
+                <strong style={{ fontFamily: 'monospace', fontSize: 13, letterSpacing: 0.5 }}>7043</strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--gray-500)' }}>Privacy Guard:</span>{' '}
+                <span style={{ color: '#22c55e', fontWeight: 500 }}>Expenses only (Income hidden)</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {/* Modals */}
       {showIncomeModal && <IncomeModal onSubmit={handleAddIncome} onClose={() => setShowIncomeModal(false)} />}

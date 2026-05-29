@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if mom view sharing is enabled
+    function isSharingEnabled(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/shared/momview) && 
+             get(/databases/$(database)/documents/users/$(userId)/shared/momview).data.enabled == true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Allow public read on the momview config doc
+      match /shared/momview {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Allow public read on all periods if sharing is enabled
+      match /periods/{periodId} {
+        allow read: if (request.auth != null && request.auth.uid == userId) || isSharingEnabled(userId);
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Allow public read on transactions if sharing is enabled AND it is an expense
+      match /transactions/{txnId} {
+        allow read: if (request.auth != null && request.auth.uid == userId) || 
+                       (isSharingEnabled(userId) && resource.data.type == 'expense');
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Allow public read on trips if sharing is enabled
+      match /trips/{tripId} {
+        allow read: if (request.auth != null && request.auth.uid == userId) || isSharingEnabled(userId);
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Fallback rule for all other subcollections (wishlist, emis, goals, etc.)
+      match /{allSubcollections=**}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

@@ -158,35 +158,42 @@ function TripListItem({ trip, completed, upcoming, onClick }) {
   const pct = Math.min((totalSpent / budget) * 100, 100)
 
   const dateText = `${format(parseISO(trip.startDate), 'MMM d')} - ${format(parseISO(trip.endDate), 'MMM d, yyyy')}`
+  const accentColor = trip.themeColor || '#0f172a'
+  const emoji = trip.coverEmoji || '🧳'
 
   return (
-    <div className={`goal-list-item ${completed ? 'completed' : ''} ${upcoming ? 'upcoming' : ''}`} onClick={onClick}>
-      <div className="goal-list-left">
-        <div className="goal-list-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>{trip.name}</span>
-          {completed && <span style={{ fontSize: '11px', color: 'var(--gray-400)' }}>📸 Saved Memory</span>}
+    <div className={`goal-list-item ${completed ? 'completed' : ''} ${upcoming ? 'upcoming' : ''}`} onClick={onClick} style={{ borderLeft: `4px solid ${accentColor}` }}>
+      <div className="goal-list-left" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div className="trip-emoji-badge" style={{ fontSize: 24, width: 44, height: 44, borderRadius: '50%', background: `${accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {emoji}
         </div>
-        <div className="goal-list-meta">
-          {dateText}
-          {completed ? (
-             <span> · Total Spent: ₹{totalSpent.toLocaleString('en-IN')}</span>
-          ) : (
-             <span> · ₹{totalSpent.toLocaleString('en-IN')} spent of ₹{budget.toLocaleString('en-IN')}</span>
-          )}
+        <div>
+          <div className="goal-list-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>{trip.name}</span>
+            {completed && <span style={{ fontSize: '11px', color: 'var(--gray-400)' }}>📸 Saved Memory</span>}
+          </div>
+          <div className="goal-list-meta">
+            {dateText}
+            {completed ? (
+               <span> · Total Spent: ₹{totalSpent.toLocaleString('en-IN')}</span>
+            ) : (
+               <span> · ₹{totalSpent.toLocaleString('en-IN')} spent of ₹{budget.toLocaleString('en-IN')}</span>
+            )}
+          </div>
         </div>
       </div>
       <div className="goal-list-right">
         {!completed ? (
           <>
-            <div className="goal-list-pct">{pct.toFixed(0)}%</div>
+            <div className="goal-list-pct" style={{ color: pct > 100 ? '#dc2626' : 'inherit' }}>{pct.toFixed(0)}%</div>
             <div className="goal-list-bar">
-              <div className="goal-list-bar-fill" style={{ width: `${pct}%`, background: pct > 75 ? '#dc2626' : pct > 50 ? '#d97706' : '#000' }} />
+              <div className="goal-list-bar-fill" style={{ width: `${pct}%`, background: pct > 75 ? '#dc2626' : accentColor }} />
             </div>
           </>
         ) : (
           <div className="trip-memory-indicator" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--gray-500)' }}>
             <span>Vault</span>
-            <Compass size={14} />
+            <Compass size={14} style={{ color: accentColor }} />
           </div>
         )}
         <ChevronRight size={16} className="goal-list-arrow" />
@@ -314,6 +321,9 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
     return 'good'
   }
 
+  const accentColor = trip.themeColor || '#0f172a'
+  const emoji = trip.coverEmoji || '🧳'
+
   return (
     <div className="goal-detail-page trip-detail-page">
       {/* Header */}
@@ -331,17 +341,26 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
       </div>
 
       {/* Main Trip Card info */}
-      <div className="goal-detail-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span>{trip.name}</span>
-        <span className={`trip-status-badge ${trip.status}`}>{trip.status === 'completed' ? 'Vaulted' : 'Active'}</span>
-      </div>
-      <div className="goal-detail-subtitle">
-        <Calendar size={13} style={{ marginRight: 4, display: 'inline' }} />
-        {format(startD, 'MMM d, yyyy')} - {format(endD, 'MMM d, yyyy')} ({totalTripDays} days)
+      <div className="goal-detail-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ fontSize: 32, width: 56, height: 56, borderRadius: '50%', background: `${accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {emoji}
+        </div>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 'var(--fs-2xl)', fontWeight: 800, color: 'var(--black)' }}>{trip.name}</span>
+            <span className={`trip-status-badge ${trip.status}`} style={{ background: trip.status === 'completed' ? 'var(--gray-100)' : `${accentColor}15`, color: trip.status === 'completed' ? 'var(--gray-600)' : accentColor }}>
+              {trip.status === 'completed' ? 'Vaulted' : 'Active'}
+            </span>
+          </div>
+          <div className="goal-detail-subtitle" style={{ margin: 0 }}>
+            <Calendar size={13} style={{ marginRight: 4, display: 'inline', verticalAlign: 'middle' }} />
+            {format(startD, 'MMM d, yyyy')} - {format(endD, 'MMM d, yyyy')} ({totalTripDays} days)
+          </div>
+        </div>
       </div>
 
       {/* Burn Rate and Budget container */}
-      <div className="trip-budget-dashboard anim-section anim-in" style={{ '--anim-order': 1 }}>
+      <div className="trip-budget-dashboard">
         <div className="trip-budget-header">
           <div className="trip-budget-spent">
             <span>₹{totalSpent.toLocaleString('en-IN')}</span> spent
@@ -353,7 +372,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
 
         {/* Multi-zone burn tracker bar */}
         <div className="trip-burn-track">
-          <div className={`trip-burn-fill ${getBurnZoneClass()}`} style={{ width: `${pct}%` }} />
+          <div className={`trip-burn-fill ${getBurnZoneClass()}`} style={{ width: `${pct}%`, background: pct >= 85 ? '#dc2626' : accentColor }} />
         </div>
 
         <div className="trip-burn-bar-legend" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--gray-500)' }}>
@@ -368,7 +387,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
       </div>
 
       {/* Quick stats grid */}
-      <div className="goal-detail-stats anim-section anim-in" style={{ '--anim-order': 2 }}>
+      <div className="goal-detail-stats">
         <div className="goal-detail-stat">
           <div className="goal-stat-label">Remaining</div>
           <div className="goal-stat-value">₹{remaining.toLocaleString('en-IN')}</div>
@@ -389,7 +408,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
 
       {/* Trip Completed Summary Block */}
       {isCompleted && (
-        <div className="trip-summary-card anim-section anim-in" style={{ '--anim-order': 3 }}>
+        <div className="trip-summary-card">
           <div className="trip-summary-header">
             <h4>📊 Trip Summary & Insights</h4>
             <span className="trip-memorial-emoji">🎬</span>
@@ -427,7 +446,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
 
       {/* Category breakdown pie bar */}
       {categorySummary.length > 0 && (
-        <div className="goal-days-section anim-section anim-in" style={{ '--anim-order': 4 }}>
+        <div className="goal-days-section">
           <h3 className="goal-days-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <PieChart size={16} /> Category Breakdown
           </h3>
@@ -454,7 +473,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
       )}
 
       {/* Day-by-Day expense breakdown logs */}
-      <div className="goal-days-section anim-section anim-in" style={{ '--anim-order': 5 }}>
+      <div className="goal-days-section">
         <h3 className="goal-days-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Landmark size={16} /> Day-by-Day Log
         </h3>
@@ -521,7 +540,7 @@ function TripDetailView({ trip, user, onBack, onDelete, onRefresh }) {
       {/* Fixed bottom controls */}
       {!isCompleted && (
         <div className="goal-add-earning-btn-wrap" style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 12, zIndex: 100 }}>
-          <button className="goal-add-earning-btn" style={{ position: 'static', transform: 'none' }} onClick={() => setShowExpenseModal(true)} id="log-trip-expense-btn">
+          <button className="goal-add-earning-btn" style={{ position: 'static', transform: 'none', background: accentColor }} onClick={() => setShowExpenseModal(true)} id="log-trip-expense-btn">
             <Plus size={18} /> Add Expense
           </button>
           <button className="goal-add-earning-btn" style={{ position: 'static', transform: 'none', background: '#f5f5f5', color: '#000', border: '1px solid #e0e0e0' }} onClick={() => setShowIncomeModal(true)} id="log-trip-income-btn">
@@ -568,6 +587,18 @@ function AddTripModal({ onSubmit, onClose }) {
   const [endDate, setEndDate] = useState(format(addDays(new Date(), 4), 'yyyy-MM-dd'))
   const [submitting, setSubmitting] = useState(false)
 
+  const EMOJI_OPTIONS = ['🧳', '🚗', '✈️', '🏔️', '🏖️', '🏨', '⛺', '🗽', '🚢', '🎒']
+  const COLOR_OPTIONS = [
+    { name: 'Slate', value: '#0f172a' },
+    { name: 'Blue', value: '#0284c7' },
+    { name: 'Green', value: '#16a34a' },
+    { name: 'Violet', value: '#7c3aed' },
+    { name: 'Orange', value: '#ea580c' },
+    { name: 'Pink', value: '#db2777' }
+  ]
+  const [coverEmoji, setCoverEmoji] = useState('🧳')
+  const [themeColor, setThemeColor] = useState('#0f172a')
+
   const sD = parseISO(startDate)
   const eD = parseISO(endDate)
   const daysTotal = Math.max(1, differenceInDays(eD, sD) + 1)
@@ -577,7 +608,7 @@ function AddTripModal({ onSubmit, onClose }) {
     e.preventDefault()
     if (!name.trim() || !Number(originalBudget) || daysTotal <= 0) return
     setSubmitting(true)
-    await onSubmit({ name: name.trim(), originalBudget: Number(originalBudget), startDate, endDate })
+    await onSubmit({ name: name.trim(), originalBudget: Number(originalBudget), startDate, endDate, coverEmoji, themeColor })
     setSubmitting(false)
   }
 
@@ -604,6 +635,51 @@ function AddTripModal({ onSubmit, onClose }) {
           </div>
         </div>
 
+        <div className="form-group">
+          <label>Cover Icon</label>
+          <div className="emoji-picker-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 6 }}>
+            {EMOJI_OPTIONS.map(emoji => (
+              <button
+                type="button"
+                key={emoji}
+                onClick={() => setCoverEmoji(emoji)}
+                style={{
+                  fontSize: 20,
+                  padding: 8,
+                  borderRadius: 8,
+                  border: coverEmoji === emoji ? '2px solid #000' : '1px solid #e5e7eb',
+                  background: coverEmoji === emoji ? '#f1f5f9' : '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Theme Color</label>
+          <div className="color-picker-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 6 }}>
+            {COLOR_OPTIONS.map(opt => (
+              <button
+                type="button"
+                key={opt.value}
+                onClick={() => setThemeColor(opt.value)}
+                style={{
+                  height: 36,
+                  borderRadius: 8,
+                  background: opt.value,
+                  border: themeColor === opt.value ? '2.5px solid #000' : '1.5px dashed transparent',
+                  cursor: 'pointer',
+                  boxShadow: themeColor === opt.value ? '0 0 0 2px #fff inset' : 'none'
+                }}
+                title={opt.name}
+              />
+            ))}
+          </div>
+        </div>
+
         {Number(originalBudget) > 0 && daysTotal > 0 && (
           <div className="emi-preview">
             <div>Duration: <strong>{daysTotal} Days</strong></div>
@@ -621,6 +697,7 @@ function AddTripModal({ onSubmit, onClose }) {
     </div>
   )
 }
+
 
 /* ── Add Expense Modal ── */
 function AddExpenseModal({ onSubmit, onClose, days, submitting }) {

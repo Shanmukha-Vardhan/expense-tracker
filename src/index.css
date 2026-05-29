@@ -273,96 +273,7 @@ textarea {
   to   { width: 120px; }
 }
 
-/* ═══════════════════════════════════════════════════
-   OPENING ANIMATIONS — Cinematic staggered entrance
-   ═══════════════════════════════════════════════════ */
-
-@keyframes anim-slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(40px) scale(0.95);
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-@keyframes anim-childPop {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.92);
-    filter: blur(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-@keyframes anim-numberGlow {
-  0%   { text-shadow: none; }
-  40%  { text-shadow: 0 0 24px rgba(0,0,0,0.18); }
-  100% { text-shadow: none; }
-}
-
-/* Section-level stagger: each section appears in sequence */
-.anim-section {
-  opacity: 0;
-  transform: translateY(40px) scale(0.95);
-  will-change: opacity, transform, filter;
-}
-
-.anim-section.anim-in {
-  animation: anim-slideUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  /* Start after splash: 2.5s total head-start */
-  animation-delay: calc(2.5s + var(--anim-order, 0) * 140ms);
-}
-
-/* Child-level stagger within a section (e.g. stat cards) */
-.anim-in .anim-child {
-  opacity: 0;
-  animation: anim-childPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay: calc(2.5s + var(--anim-order, 0) * 140ms + var(--child-order, 0) * 100ms + 180ms);
-}
-
-/* Glow pulse on stat values once they count up */
-.stat-value {
-  animation: anim-numberGlow 2s ease-out;
-  animation-delay: calc(2.5s + 600ms);
-  animation-fill-mode: both;
-}
-
-/* Transaction row stagger */
-.anim-txn {
-  opacity: 0;
-  transform: translateX(-16px);
-}
-.anim-txn.anim-in {
-  animation: anim-txnSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay: calc(2.5s + 1000ms + var(--txn-order, 0) * 70ms);
-}
-@keyframes anim-txnSlide {
-  from { opacity: 0; transform: translateX(-16px); filter: blur(2px); }
-  to   { opacity: 1; transform: translateX(0); filter: blur(0); }
-}
-
-/* Bar fill reveal (for progress bars) */
-.bucket-bar-fill,
-.goal-bar-fill,
-.emi-burden-locked {
-  animation: barReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay: calc(2.5s + 800ms);
-  transform-origin: left;
-}
-
-@keyframes barReveal {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
+/* ═══════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════
    LAYOUT — SIDEBAR + MAIN
@@ -3348,7 +3259,7 @@ textarea {
 }
 
 .trip-category-row {
-  animation: anim-childPop 0.4s ease forwards;
+  opacity: 1;
 }
 
 /* Day breakdown entry lines */
@@ -3377,4 +3288,569 @@ textarea {
 
 .goal-add-earning-btn-wrap button {
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+/* ══════════════════════════════════════════
+   MOM'S DASHBOARD & SHARING SWITCH STYLES
+   ══════════════════════════════════════════ */
+
+/* Mom's Switch Control */
+.mom-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.mom-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.mom-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e5e7eb;
+  transition: .3s;
+  border-radius: 24px;
+}
+.mom-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.mom-switch input:checked + .mom-switch-slider {
+  background-color: #000000;
+}
+.mom-switch input:checked + .mom-switch-slider:before {
+  transform: translateX(20px);
+}
+
+/* Mom's View General Fallbacks */
+.mom-fallback-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f9fafb;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.mom-fallback-card {
+  background: white;
+  padding: 32px 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+  border: 1px solid #f3f4f6;
+}
+.mom-fallback-card h2 {
+  margin: 16px 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+.mom-fallback-card p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+.icon-locked {
+  color: #ef4444;
+}
+.icon-error {
+  color: #f59e0b;
+}
+.mom-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: mom-spin 0.8s linear infinite;
+}
+@keyframes mom-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mom's Pin Entry Screen */
+.mom-pin-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 100vh;
+  background-color: #ffffff;
+  padding: 48px 24px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.mom-pin-header {
+  text-align: center;
+  margin-top: 20px;
+}
+.mom-avatar {
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+.mom-pin-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #111827;
+}
+.mom-pin-header p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+.mom-pin-dots {
+  display: flex;
+  gap: 20px;
+  margin: 40px 0;
+  justify-content: center;
+}
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  transition: all 0.15s ease;
+}
+.pin-dot.active {
+  background-color: #000;
+  border-color: #000;
+  transform: scale(1.1);
+}
+.pin-dot.error {
+  background-color: #ef4444;
+  border-color: #ef4444;
+}
+.mom-pin-error {
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  height: 20px;
+  text-align: center;
+}
+.mom-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 40px;
+}
+.keypad-btn {
+  background: #f9fafb;
+  border: none;
+  border-radius: 50%;
+  width: 72px;
+  height: 72px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  transition: background 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.keypad-btn:active {
+  background: #f3f4f6;
+}
+.keypad-btn.empty {
+  background: transparent;
+  cursor: default;
+}
+.keypad-btn.backspace {
+  font-size: 18px;
+  color: #4b5563;
+  background: transparent;
+}
+.keypad-btn.backspace:active {
+  background: #f9fafb;
+}
+.shake {
+  animation: shake 0.35s ease-in-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* Mom's Dashboard Layout */
+.mom-dashboard-container {
+  background-color: #f9fafb;
+  min-height: 100vh;
+  padding-bottom: 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  box-shadow: 0 0 20px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+}
+.mom-dash-header {
+  background: white;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.mom-header-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mom-header-avatar {
+  font-size: 28px;
+}
+.mom-header-profile h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+.live-badge {
+  font-size: 11px;
+  color: #22c55e;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse-live 1.5s infinite;
+}
+@keyframes pulse-live {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+.mom-logout-btn {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+}
+.mom-hero-section {
+  padding: 20px 16px 12px;
+}
+.mom-hero-card {
+  background: #000;
+  color: white;
+  border-radius: 16px;
+  padding: 24px 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+.mom-hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  opacity: 0.7;
+}
+.mom-hero-value {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 8px 0 16px;
+  letter-spacing: -0.5px;
+}
+.mom-hero-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  opacity: 0.9;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  padding-top: 12px;
+}
+.mom-section {
+  padding: 12px 16px;
+}
+.mom-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+.mom-section-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mom-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f3f4f6;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.mom-card.no-padding {
+  padding: 0;
+  overflow: hidden;
+}
+.mom-empty-state {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+.mom-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mom-category-item {
+  display: flex;
+  flex-direction: column;
+}
+.mom-category-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.mom-cat-name {
+  font-weight: 600;
+  color: #1f2937;
+}
+.mom-cat-amount {
+  font-weight: 700;
+  color: #111827;
+}
+.mom-progress-track {
+  height: 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mom-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.mom-category-percentage {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+  text-align: right;
+}
+.mom-trips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mom-trip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mom-trip-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.mom-trip-title {
+  font-weight: 600;
+}
+.mom-trip-spend {
+  font-weight: 700;
+  color: #111827;
+}
+.mom-txn-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.mom-txn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.mom-txn-row:last-child {
+  border-bottom: none;
+}
+.mom-txn-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mom-txn-desc {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1f2937;
+}
+.mom-txn-meta {
+  font-size: 11px;
+  color: #9ca3af;
+}
+.mom-txn-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: #dc2626; /* Expense red */
+}
+.mom-dash-footer-text {
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.mom-heart-icon {
+  color: #f43f5e;
+  animation: mom-pulse 2s infinite;
+}
+@keyframes mom-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* Mom's Stats Grid */
+.mom-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+.mom-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.01);
+}
+.mom-stat-card.highlight {
+  grid-column: span 2;
+  background: #000;
+  color: white;
+  border-color: #000;
+}
+.mom-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.5px;
+}
+.mom-stat-card.highlight .mom-stat-label {
+  color: rgba(255,255,255,0.7);
+}
+.mom-stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  margin-top: 6px;
+  color: #111827;
+}
+.mom-stat-card.highlight .mom-stat-value {
+  color: white;
+}
+
+/* Mom's Trip Expansion styles */
+.mom-trip-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f3f4f6;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.mom-trip-card:last-child {
+  margin-bottom: 0;
+}
+.mom-trip-click-hint {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mom-trip-expenses-expanded {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #e5e7eb;
+}
+.mom-trip-empty-expenses {
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 8px 0;
+}
+.mom-trip-expenses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mom-trip-exp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f9fafb;
+}
+.mom-trip-exp-row:last-child {
+  border-bottom: none;
+}
+.mom-trip-exp-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mom-trip-exp-desc {
+  font-weight: 500;
+  color: #374151;
+}
+.mom-trip-exp-date {
+  font-size: 10px;
+  color: #9ca3af;
+}
+.mom-trip-exp-amt {
+  font-weight: 700;
+  color: #111827;
 }

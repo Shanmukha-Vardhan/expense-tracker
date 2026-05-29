@@ -616,6 +616,8 @@ export async function addTrip(uid, data) {
     startDate: data.startDate,
     endDate: data.endDate,
     status: 'active', // 'active' | 'completed' (upcoming calculated dynamically based on date)
+    coverEmoji: data.coverEmoji || '🧳',
+    themeColor: data.themeColor || '#000000',
     expenses: [],
     income: [],
     createdAt: Timestamp.now(),
@@ -642,18 +644,90 @@ export async function getTrip(uid, tripId) {
   return null
 }
 
+/* Helper to log a trip expense into the main Dashboard Enjoyment bucket first, falling back to other buckets if needed */
+export async function addEnjoymentExpense(uid, amount, description, date) {
+  const period = await getOrCreateCurrentPeriod(uid)
+  const ref = currentPeriodRef(uid)
+  const key = date || todayKey()
+
+  const enjR = Math.max(0, (period.buckets.enjoyment.allocated || 0) - (period.buckets.enjoyment.spent || 0))
+  const essR = Math.max(0, (period.buckets.essentials.allocated || 0) - (period.buckets.essentials.spent || 0))
+  const groR = Math.max(0, (period.buckets.growth.allocated || 0) - (period.buckets.growth.spent || 0))
+  const savR = Math.max(0, (period.buckets.savings.allocated || 0) - (period.buckets.savings.spent || 0))
+
+  let remaining = amount
+  let fromEnjoyment = 0, fromEssentials = 0, fromGrowth = 0, fromSavings = 0
+
+  // 1. Enjoyment
+  fromEnjoyment = Math.min(remaining, enjR)
+  remaining -= fromEnjoyment
+
+  // 2. Essentials
+  if (remaining > 0) {
+    fromEssentials = Math.min(remaining, essR)
+    remaining -= fromEssentials
+  }
+
+  // 3. Growth
+  if (remaining > 0) {
+    fromGrowth = Math.min(remaining, groR)
+    remaining -= fromGrowth
+  }
+
+  // 4. Savings
+  if (remaining > 0) {
+    fromSavings = Math.min(remaining, savR)
+    remaining -= fromSavings
+  }
+
+  const updates = {
+    totalExpenses: period.totalExpenses + amount,
+    'buckets.essentials.spent': (period.buckets.essentials.spent || 0) + fromEssentials,
+    'buckets.enjoyment.spent': (period.buckets.enjoyment.spent || 0) + fromEnjoyment,
+    'buckets.growth.spent': (period.buckets.growth.spent || 0) + fromGrowth,
+    'buckets.savings.spent': (period.buckets.savings.spent || 0) + fromSavings
+  }
+
+  await updateDoc(ref, updates)
+
+  const txnRef = await addDoc(txnCol(uid), {
+    type: 'expense',
+    amount,
+    description: description || 'Trip Expense',
+    date: key,
+    timestamp: Timestamp.now(),
+    fromEssentials,
+    fromEnjoyment,
+    fromGrowth,
+    fromSavings,
+    overspent: remaining
+  })
+  return txnRef.id
+}
+
 export async function addTripExpense(uid, tripId, expense) {
   const ref = doc(db, 'users', uid, 'trips', tripId)
   const snap = await getDoc(ref)
   if (!snap.exists()) return
   const data = snap.data()
   const expenses = [...(data.expenses || [])]
+
+  // Auto-deduct: add enjoyment transaction to main Dashboard
+  const label = `🧳 [${data.name}] ${expense.description}`
+  let dashboardTxnId = null
+  try {
+    dashboardTxnId = await addEnjoymentExpense(uid, Number(expense.amount), label, expense.date)
+  } catch (err) {
+    console.error('Auto-deduct to Dashboard failed:', err)
+  }
+
   expenses.push({
     id: Math.random().toString(36).substring(2, 9),
     amount: Number(expense.amount),
     description: expense.description,
     category: expense.category,
     date: expense.date,
+    dashboardTxnId,
     timestamp: Timestamp.now()
   })
   await updateDoc(ref, { expenses })
@@ -683,6 +757,14 @@ export async function deleteTripEntry(uid, tripId, entryId, type) {
   if (!snap.exists()) return
   const data = snap.data()
   if (type === 'expense') {
+    const targetExpense = (data.expenses || []).find(e => e.id === entryId)
+    if (targetExpense?.dashboardTxnId) {
+      try {
+        await deleteTransaction(uid, targetExpense.dashboardTxnId)
+      } catch (err) {
+        console.error('Delete auto-deducted transaction from Dashboard failed:', err)
+      }
+    }
     const expenses = (data.expenses || []).filter(e => e.id !== entryId)
     await updateDoc(ref, { expenses })
   } else if (type === 'income') {
@@ -718,4 +800,63 @@ export async function completeTrip(uid, tripId) {
 export async function deleteTrip(uid, tripId) {
   return deleteDoc(doc(db, 'users', uid, 'trips', tripId))
 }
+
+/* ══════════════════════════════════════════
+   MOM VIEW SHARING
+   ══════════════════════════════════════════ */
+
+export async function getMomViewStatus(uid) {
+  try {
+    const ref = doc(db, 'users', uid, 'shared', 'momview')
+    const snap = await getDoc(ref)
+    if (snap.exists()) {
+      return snap.data()
+    }
+    return { enabled: false, pin: '7043' }
+  } catch (err) {
+    console.error('getMomViewStatus error:', err)
+    return { enabled: false, pin: '7043' }
+  }
+}
+
+export async function updateMomViewStatus(uid, enabled) {
+  const ref = doc(db, 'users', uid, 'shared', 'momview')
+  await setDoc(ref, {
+    enabled,
+    pin: '7043',
+    updatedAt: Timestamp.now()
+  }, { merge: true })
+}
+
+export function subscribeToMomExpenses(uid, callback) {
+  const q = query(
+    collection(db, 'users', uid, 'transactions'),
+    where('type', '==', 'expense')
+  )
+  return onSnapshot(q, (snap) => {
+    const txns = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    txns.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date)
+      const aTime = a.timestamp?.toMillis?.() || 0
+      const bTime = b.timestamp?.toMillis?.() || 0
+      return bTime - aTime
+    })
+    callback(txns)
+  }, (err) => {
+    console.error('subscribeToMomExpenses error:', err)
+    callback([])
+  })
+}
+
+export function subscribeToTripsRealtime(uid, callback) {
+  const q = query(collection(db, 'users', uid, 'trips'))
+  return onSnapshot(q, (snap) => {
+    const trips = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    callback(trips)
+  }, (err) => {
+    console.error('subscribeToTripsRealtime error:', err)
+    callback([])
+  })
+}
+
 
